@@ -26,11 +26,11 @@ describe('ViewportToolbar', () => {
       },
     });
 
-    expect(wrapper.get('button[aria-label="Hide grid"]').attributes('aria-pressed')).toBe('true');
-    expect(wrapper.get('button[aria-label="Show bounds"]').attributes('aria-pressed')).toBe('false');
-    expect(wrapper.get('button[aria-label="Hide textures"]').attributes('aria-pressed')).toBe('true');
-    expect(wrapper.get('input[aria-label="Exposure"]').element).toHaveProperty('value', '1.25');
-    expect(wrapper.find('button[aria-label="Download screenshot"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="隐藏网格"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('button[aria-label="显示包围盒"]').attributes('aria-pressed')).toBe('false');
+    expect(wrapper.get('button[aria-label="隐藏贴图"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('input[aria-label="曝光"]').element).toHaveProperty('value', '1.25');
+    expect(wrapper.find('button[aria-label="下载截图"]').exists()).toBe(true);
   });
 
   it('emits flag, exposure, and screenshot changes without mutating props', async () => {
@@ -41,10 +41,10 @@ describe('ViewportToolbar', () => {
       },
     });
 
-    await wrapper.get('button[aria-label="Hide grid"]').trigger('click');
-    await wrapper.get('button[aria-label="Show wireframe"]').trigger('click');
-    await wrapper.get('input[aria-label="Exposure"]').setValue('1.5');
-    await wrapper.get('button[aria-label="Download screenshot"]').trigger('click');
+    await wrapper.get('button[aria-label="隐藏网格"]').trigger('click');
+    await wrapper.get('button[aria-label="显示线框"]').trigger('click');
+    await wrapper.get('input[aria-label="曝光"]').setValue('1.5');
+    await wrapper.get('button[aria-label="下载截图"]').trigger('click');
 
     expect(initialFlags.grid).toBe(true);
     expect(initialFlags.wireframe).toBe(false);

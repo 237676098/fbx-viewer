@@ -76,7 +76,7 @@ export function extractMeshSections(mesh: THREE.Mesh): InspectorSection[] {
   return [
     {
       id: 'mesh',
-      title: 'Mesh',
+      title: '网格摘要',
       fields: [
         field('mesh.name', mesh.name, mesh.name || '(unnamed)', 'THREE.Mesh'),
         field('mesh.type', mesh.type, undefined, 'THREE.Mesh'),
@@ -88,17 +88,17 @@ export function extractMeshSections(mesh: THREE.Mesh): InspectorSection[] {
     },
     {
       id: 'geometry-attributes',
-      title: 'Geometry Attributes',
+      title: '几何属性',
       fields: extractAttributeFields(geometry),
     },
     {
       id: 'geometry-groups',
-      title: 'Geometry Groups',
+      title: '几何分组',
       fields: extractGroupFields(geometry),
     },
     {
       id: 'geometry-bounds',
-      title: 'Geometry Bounds',
+      title: '包围范围',
       fields: extractBoundsFields(geometry),
     },
   ];

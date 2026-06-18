@@ -5,12 +5,14 @@ import SceneTree from '../../src/components/scene/SceneTree.vue';
 import type { SceneNodeInfo } from '../../src/domain/types';
 
 function node(id: string, name: string, children: SceneNodeInfo[] = []): SceneNodeInfo {
+  const object = new THREE.Object3D();
+  object.name = name;
   return {
     id,
     name,
     type: 'Mesh',
     depth: 0,
-    object: new THREE.Object3D(),
+    object,
     children,
   };
 }
@@ -28,6 +30,10 @@ describe('SceneTree', () => {
     });
 
     expect(wrapper.text()).toContain('RootGroup');
+    expect(wrapper.find('[data-node-id="child"]').exists()).toBe(false);
+
+    await wrapper.get('[data-toggle-id="root"]').trigger('click');
+
     expect(wrapper.text()).toContain('ChildMesh');
     expect(wrapper.get('[data-node-id="child"]').classes()).toContain('selected');
 
@@ -48,5 +54,26 @@ describe('SceneTree', () => {
     });
 
     expect(wrapper.findAll('[data-node-id="root"]')).toHaveLength(1);
+  });
+
+  it('collapses and expands child nodes without merging node name and type text', async () => {
+    const child = node('child', 'RootBone');
+    const root = node('root', 'CharacterArmature', [child]);
+
+    const wrapper = mount(SceneTree, {
+      props: {
+        nodes: [root],
+        selectedId: null,
+      },
+    });
+
+    expect(wrapper.find('[data-node-id="child"]').exists()).toBe(false);
+
+    await wrapper.get('[data-toggle-id="root"]').trigger('click');
+
+    expect(wrapper.find('[data-node-id="child"]').exists()).toBe(true);
+    expect(wrapper.get('[data-node-id="child"] .scene-node-name').text()).toBe('RootBone');
+    expect(wrapper.get('[data-node-id="child"] .scene-node-type').text()).toBe('Mesh');
+    expect(wrapper.get('[data-node-id="child"]').html()).toContain('scene-node-type');
   });
 });

@@ -84,7 +84,16 @@ function getTrackFields(track: THREE.KeyframeTrack, clipIndex: number, trackInde
   ];
 }
 
-export function extractAnimationSections(clips: THREE.AnimationClip[]): InspectorSection[] {
+export type AnimationExtractionOptions = {
+  includeTracks?: boolean;
+};
+
+export function extractAnimationSections(
+  clips: THREE.AnimationClip[],
+  options: AnimationExtractionOptions = {},
+): InspectorSection[] {
+  const includeTracks = options.includeTracks ?? true;
+
   if (clips.length === 0) {
     return [
       {
@@ -100,7 +109,9 @@ export function extractAnimationSections(clips: THREE.AnimationClip[]): Inspecto
     title: clip.name || `Animation ${clipIndex + 1}`,
     fields: [
       ...getClipSummaryFields(clip, clipIndex),
-      ...clip.tracks.flatMap((track, trackIndex) => getTrackFields(track, clipIndex, trackIndex)),
+      ...(includeTracks
+        ? clip.tracks.flatMap((track, trackIndex) => getTrackFields(track, clipIndex, trackIndex))
+        : []),
     ],
   }));
 }

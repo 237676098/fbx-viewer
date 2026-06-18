@@ -14,7 +14,7 @@ export type ViewportDebugFlags = {
 
 export function useViewportDiagnostics() {
   const flags = reactive<ViewportDebugFlags>({
-    grid: true,
+    grid: false,
     axes: true,
     bounds: false,
     skeleton: false,

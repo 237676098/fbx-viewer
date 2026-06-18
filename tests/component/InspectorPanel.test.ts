@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
-import { nextTick } from 'vue';
 import InspectorPanel from '../../src/components/inspector/InspectorPanel.vue';
 import type { InspectorSection } from '../../src/domain/types';
 
@@ -8,6 +7,15 @@ type InspectorTab = {
   id: string;
   label: string;
   sections: InspectorSection[];
+  texturePreviews?: Array<{
+    id: string;
+    name: string;
+    slot: string;
+    materialName: string;
+    width: number | null;
+    height: number | null;
+    previewUrl: string | null;
+  }>;
 };
 
 function section(id: string, title: string, path: string): InspectorSection {
@@ -26,47 +34,58 @@ function section(id: string, title: string, path: string): InspectorSection {
 }
 
 describe('InspectorPanel', () => {
-  it('switches tabs and renders active tab sections with field tables', async () => {
+  it('renders node-related sections as vertical groups without tabs', () => {
     const tabs: InspectorTab[] = [
-      { id: 'overview', label: 'Overview', sections: [section('stats', 'Stats', 'overview.meshCount')] },
-      { id: 'raw', label: 'Raw', sections: [section('raw-node', 'Raw Node', 'raw.uuid')] },
+      { id: 'node', label: '节点', sections: [section('node', '节点', 'object.name')] },
+      { id: 'mesh', label: '网格', sections: [section('mesh-stats', '网格统计', 'geometry.attributes.position.count')] },
     ];
 
     const wrapper = mount(InspectorPanel, {
       props: { tabs },
     });
 
-    expect(wrapper.get('[role="tab"][aria-selected="true"]').text()).toBe('Overview');
-    expect(wrapper.text()).toContain('Stats');
-    expect(wrapper.text()).toContain('overview.meshCount');
-
-    await wrapper.get('[role="tab"][data-tab-id="raw"]').trigger('click');
-
-    expect(wrapper.get('[role="tab"][aria-selected="true"]').text()).toBe('Raw');
-    expect(wrapper.text()).toContain('Raw Node');
-    expect(wrapper.text()).toContain('raw.uuid');
-    expect(wrapper.text()).not.toContain('overview.meshCount');
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('节点');
+    expect(wrapper.text()).toContain('object.name');
+    expect(wrapper.text()).toContain('网格统计');
+    expect(wrapper.text()).toContain('geometry.attributes.position.count');
   });
 
-  it('selects a valid tab when the tab list changes', async () => {
-    const wrapper = mount(InspectorPanel, {
-      props: {
-        tabs: [
-          { id: 'overview', label: 'Overview', sections: [section('stats', 'Stats', 'overview.meshCount')] },
-          { id: 'mesh', label: 'Mesh', sections: [section('mesh-stats', 'Mesh Stats', 'mesh.vertexCount')] },
+  it('uses collapsible inspector components and keeps texture previews inside their component', () => {
+    const tabs: InspectorTab[] = [
+      { id: 'node', label: '节点', sections: [section('node', '基础属性', 'object.name')] },
+      {
+        id: 'textures',
+        label: '纹理',
+        texturePreviews: [
+          {
+            id: 'base',
+            name: 'base_color_texture',
+            slot: 'map',
+            materialName: 'Atlas',
+            width: 512,
+            height: 512,
+            previewUrl: 'blob:texture',
+          },
         ],
+        sections: [section('texture-map', 'map', 'texture.name')],
       },
+    ];
+
+    const wrapper = mount(InspectorPanel, {
+      props: { tabs },
     });
 
-    await wrapper.get('[role="tab"][data-tab-id="mesh"]').trigger('click');
-    await wrapper.setProps({
-      tabs: [{ id: 'overview', label: 'Overview', sections: [section('stats', 'Stats', 'overview.meshCount')] }],
-    });
-    await nextTick();
-
-    expect(wrapper.get('[role="tab"][aria-selected="true"]').attributes('data-tab-id')).toBe('overview');
-    expect(wrapper.text()).toContain('overview.meshCount');
-    expect(wrapper.text()).not.toContain('mesh.vertexCount');
+    const components = wrapper.findAll('[data-inspector-component]');
+    expect(components).toHaveLength(2);
+    expect(components[0].element.tagName).toBe('DETAILS');
+    expect(components[0].attributes('open')).toBeDefined();
+    expect(components[0].find('[data-inspector-component-icon]').exists()).toBe(true);
+    expect(components[0].find('.node-property-count').exists()).toBe(false);
+    expect(components[0].find('details.inspector-section').exists()).toBe(false);
+    expect(components[0].find('[data-inspector-section-title]').text()).toBe('基础属性');
+    expect(components[1].find('[data-texture-preview]').exists()).toBe(true);
+    expect(components[1].text()).toContain('base_color_texture');
   });
 
   it('renders an empty state when no tabs are provided', () => {
@@ -74,6 +93,6 @@ describe('InspectorPanel', () => {
       props: { tabs: [] },
     });
 
-    expect(wrapper.text()).toContain('No inspector data');
+    expect(wrapper.text()).toContain('暂无属性数据');
   });
 });

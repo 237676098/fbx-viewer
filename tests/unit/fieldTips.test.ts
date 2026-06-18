@@ -3,16 +3,16 @@ import { getFieldTip } from '../../src/domain/tips/fieldTips';
 
 describe('field tips', () => {
   it('returns exact tips', () => {
-    expect(getFieldTip('clip.duration')).toContain('playback');
+    expect(getFieldTip('clip.duration')).toContain('总播放时长');
   });
 
   it('returns prefix tips', () => {
-    expect(getFieldTip('texture.wrapS')).toContain('UVs');
+    expect(getFieldTip('texture.wrapS')).toContain('UV');
   });
 
   it('returns pattern tips', () => {
     expect(getFieldTip('animation.tracks.0.times.length')).toContain(
-      'Number of keyframe timestamps',
+      '关键帧时间点数量',
     );
   });
 

@@ -178,8 +178,32 @@ code {
 .workbench-grid {
   display: grid;
   min-height: 0;
-  grid-template-columns: 280px minmax(520px, 1fr) 360px;
   background: #0e1116;
+}
+
+.workspace-layout {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) 260px;
+  background: #0e1116;
+}
+
+.resize-handle {
+  width: 6px;
+  min-width: 6px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid #171d25;
+  border-left: 1px solid #252c37;
+  border-radius: 0;
+  background: #0f141b;
+  cursor: col-resize;
+}
+
+.resize-handle:hover,
+.resize-handle:focus-visible {
+  background: #28405f;
 }
 
 .workbench-pane,
@@ -194,12 +218,25 @@ code {
   background: #12171e;
 }
 
+.inspector-pane {
+  display: block;
+  overflow: hidden;
+}
+
 .scene-pane {
   border-right: 1px solid #2a303b;
 }
 
 .inspector-pane {
   border-left: 1px solid #2a303b;
+}
+
+.asset-dock {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: 36px minmax(0, 1fr);
+  border-top: 1px solid #2a303b;
+  background: #12171e;
 }
 
 .pane-header {
@@ -222,7 +259,8 @@ code {
 }
 
 .scene-tree,
-.inspector-panel {
+.inspector-panel,
+.asset-panel {
   min-height: 0;
   overflow: auto;
 }
@@ -250,9 +288,17 @@ code {
   background: #1d2632;
 }
 
+.scene-node-toggle:hover {
+  background: #1d2632;
+}
+
 .scene-node.selected {
   background: #263b5a;
   color: #f2f7ff;
+}
+
+.scene-node-main {
+  min-width: 0;
 }
 
 .scene-node-name {
@@ -416,18 +462,22 @@ code {
 
 .inspector-section {
   margin: 0 0 8px;
+  overflow: hidden;
   border: 1px solid #252c37;
   border-radius: 4px;
-  background: #11161d;
+  background: #10151c;
 }
 
 .inspector-section summary {
   min-height: 30px;
   padding: 6px 8px;
   border-bottom: 1px solid #252c37;
-  color: #eef2f8;
+  background: #131922;
+  color: #dce4ef;
   cursor: pointer;
+  font-size: 12px;
   font-weight: 700;
+  list-style-position: inside;
 }
 
 .field-table {
@@ -459,4 +509,12 @@ code {
 .field-copy {
   min-height: 24px;
   padding: 2px 7px;
+}
+
+.inspector-field-row:hover {
+  background: #161e28;
+}
+
+.inspector-field-name[title]:hover {
+  color: #d8e5f8;
 }

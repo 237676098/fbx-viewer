@@ -30,7 +30,19 @@ const emit = defineEmits<{
   'loop-change': [enabled: boolean];
 }>();
 
-const playbackLabel = computed(() => (props.isPlaying ? 'Pause' : 'Play'));
+const playbackText = computed(() => (props.isPlaying ? '暂停' : '播放'));
+
+function splitClipLabel(label: string): { primary: string; secondary: string } {
+  const separatorIndex = label.lastIndexOf('|');
+  if (separatorIndex < 0) return { primary: label || '未命名动画', secondary: '' };
+
+  const secondary = label.slice(0, separatorIndex).trim();
+  const primary = label.slice(separatorIndex + 1).trim();
+  return {
+    primary: primary || label,
+    secondary,
+  };
+}
 
 function togglePlayback(): void {
   if (props.isPlaying) {
@@ -55,26 +67,32 @@ function emitSpeed(event: Event): void {
   <footer class="timeline">
     <select
       class="timeline-clip"
-      aria-label="Animation clip"
+      aria-label="动画片段"
       :value="currentClipId"
       @change="emit('clip-change', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-for="clip in clips" :key="clip.id" :value="clip.id">
-        {{ clip.label }}
+      <option
+        v-for="clip in clips"
+        :key="clip.id"
+        :value="clip.id"
+        :data-rig="splitClipLabel(clip.label).secondary"
+        :title="clip.label"
+      >
+        {{ splitClipLabel(clip.label).primary }}
       </option>
     </select>
 
-    <button type="button" aria-label="Previous frame" @click="emit('step', -1)">Prev</button>
-    <button type="button" :aria-label="playbackLabel" @click="togglePlayback">
-      {{ playbackLabel }}
+    <button type="button" aria-label="上一帧" @click="emit('step', -1)">上一帧</button>
+    <button type="button" :aria-label="playbackText" @click="togglePlayback">
+      {{ playbackText }}
     </button>
-    <button type="button" aria-label="Stop" @click="emit('stop')">Stop</button>
-    <button type="button" aria-label="Next frame" @click="emit('step', 1)">Next</button>
+    <button type="button" aria-label="停止" @click="emit('stop')">停止</button>
+    <button type="button" aria-label="下一帧" @click="emit('step', 1)">下一帧</button>
 
     <input
       class="timeline-scrub"
       type="range"
-      aria-label="Animation time"
+      aria-label="动画时间"
       min="0"
       :max="duration"
       step="0.001"
@@ -86,7 +104,7 @@ function emitSpeed(event: Event): void {
 
     <select
       class="timeline-speed"
-      aria-label="Playback speed"
+      aria-label="播放速度"
       :value="speed"
       @change="emitSpeed"
     >
@@ -100,16 +118,16 @@ function emitSpeed(event: Event): void {
     <label class="timeline-loop">
       <input
         type="checkbox"
-        aria-label="Loop animation"
+        aria-label="循环播放"
         :checked="loop"
         @change="emit('loop-change', ($event.target as HTMLInputElement).checked)"
       />
-      Loop
+      循环
     </label>
 
-    <span class="timeline-stat">{{ trackCount }} tracks</span>
-    <span class="timeline-stat">{{ keyframeCount }} keys</span>
-    <span class="timeline-stat">{{ nodeCount }} nodes</span>
+    <span class="timeline-stat">{{ trackCount }} 轨道</span>
+    <span class="timeline-stat">{{ keyframeCount }} 关键帧</span>
+    <span class="timeline-stat">{{ nodeCount }} 节点</span>
   </footer>
 </template>
 

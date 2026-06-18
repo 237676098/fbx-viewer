@@ -16,23 +16,19 @@ const emit = defineEmits<{
 }>();
 
 const toggleControls: { key: ToggleFlag; label: string }[] = [
-  { key: 'grid', label: 'grid' },
-  { key: 'axes', label: 'axes' },
-  { key: 'bounds', label: 'bounds' },
-  { key: 'skeleton', label: 'skeleton' },
-  { key: 'wireframe', label: 'wireframe' },
-  { key: 'textures', label: 'textures' },
-  { key: 'normals', label: 'normals' },
-  { key: 'materialOverride', label: 'material override' },
+  { key: 'grid', label: '网格' },
+  { key: 'axes', label: '坐标轴' },
+  { key: 'bounds', label: '包围盒' },
+  { key: 'skeleton', label: '骨骼' },
+  { key: 'wireframe', label: '线框' },
+  { key: 'textures', label: '贴图' },
+  { key: 'normals', label: '法线' },
+  { key: 'materialOverride', label: '材质覆盖' },
 ];
 
-function displayLabel(label: string): string {
-  return label.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function controlLabel(key: ToggleFlag, label: string): string {
-  const action = props.flags[key] ? 'Hide' : 'Show';
-  return `${action} ${label}`;
+  const action = props.flags[key] ? '隐藏' : '显示';
+  return `${action}${label}`;
 }
 
 function toggleFlag(key: ToggleFlag): void {
@@ -46,8 +42,8 @@ function updateExposure(event: Event): void {
 </script>
 
 <template>
-  <div class="viewport-toolbar" aria-label="Viewport diagnostics controls">
-    <div class="viewport-toolbar-group" role="group" aria-label="Viewport overlays">
+  <div class="viewport-toolbar" aria-label="视口诊断控制">
+    <div class="viewport-toolbar-group" role="group" aria-label="视口辅助显示">
       <button
         v-for="control in toggleControls"
         :key="control.key"
@@ -57,15 +53,15 @@ function updateExposure(event: Event): void {
         :aria-pressed="flags[control.key]"
         @click="toggleFlag(control.key)"
       >
-        {{ displayLabel(control.label) }}
+        {{ control.label }}
       </button>
     </div>
 
     <label class="exposure-control">
-      <span>Exposure</span>
+      <span>曝光</span>
       <input
         type="range"
-        aria-label="Exposure"
+        aria-label="曝光"
         min="0"
         max="2"
         step="0.05"
@@ -78,10 +74,10 @@ function updateExposure(event: Event): void {
     <button
       class="toolbar-button"
       type="button"
-      aria-label="Download screenshot"
+      aria-label="下载截图"
       @click="emit('screenshot')"
     >
-      Screenshot
+      截图
     </button>
   </div>
 </template>

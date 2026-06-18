@@ -25,7 +25,7 @@ export function extractSkeletonSections(object: THREE.Object3D): InspectorSectio
   return [
     {
       id: 'skeleton',
-      title: 'Skeleton',
+      title: '骨骼绑定',
       fields: [
         field('skeleton.isSkinnedMesh', skinned),
         field('skeleton.bones.length', bones.length),

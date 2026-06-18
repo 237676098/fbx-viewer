@@ -28,6 +28,39 @@ function isTexture(value: unknown): value is THREE.Texture {
   return Boolean(value && typeof value === 'object' && 'isTexture' in value && value.isTexture === true);
 }
 
+function hasRenderableImage(image: unknown): boolean {
+  if (!image || typeof image !== 'object') return false;
+
+  const candidate = image as {
+    width?: unknown;
+    height?: unknown;
+    videoWidth?: unknown;
+    videoHeight?: unknown;
+    naturalWidth?: unknown;
+    naturalHeight?: unknown;
+    data?: unknown;
+    src?: unknown;
+    currentSrc?: unknown;
+  };
+
+  const width = candidate.width ?? candidate.videoWidth ?? candidate.naturalWidth;
+  const height = candidate.height ?? candidate.videoHeight ?? candidate.naturalHeight;
+
+  if (typeof width === 'number' && width > 0 && typeof height === 'number' && height > 0) {
+    return true;
+  }
+
+  if (typeof candidate.src === 'string' && candidate.src.length > 0) return true;
+  if (typeof candidate.currentSrc === 'string' && candidate.currentSrc.length > 0) return true;
+
+  return Boolean(candidate.data);
+}
+
+export function renderableTextureOrNull(texture: THREE.Texture | null): THREE.Texture | null {
+  if (!texture) return null;
+  return hasRenderableImage(texture.image) ? texture : null;
+}
+
 function disposeResource(value: unknown): void {
   const disposable = value as DisposableResource;
   disposable?.dispose?.();
@@ -106,7 +139,11 @@ export function useThreeScene(
   let mounted = false;
 
   scene.value.background = new THREE.Color(0x111318);
-  scene.value.add(new THREE.HemisphereLight(0xffffff, 0x303040, 2));
+  scene.value.add(new THREE.AmbientLight(0xffffff, 1.3));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+  keyLight.position.set(2, 4, 3);
+  scene.value.add(keyLight);
+  scene.value.add(new THREE.HemisphereLight(0xffffff, 0x303040, 1.2));
   scene.value.add(helperGroup);
   camera.value.position.set(2, 2, 4);
 
@@ -262,7 +299,12 @@ export function useThreeScene(
     }
 
     for (const key of state.textures.keys()) {
-      candidate[key] = currentFlags.textures ? state.textures.get(key) ?? null : null;
+      const texture = state.textures.get(key) ?? null;
+      if (texture && (key === 'map' || key === 'emissiveMap' || key === 'matcap')) {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.needsUpdate = true;
+      }
+      candidate[key] = currentFlags.textures ? renderableTextureOrNull(texture) : null;
     }
 
     material.needsUpdate = true;

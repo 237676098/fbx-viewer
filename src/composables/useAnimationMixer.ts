@@ -20,6 +20,7 @@ export function useAnimationMixer() {
     if (!activeMixer) return;
 
     activeMixer.setTime(time);
+    activeMixer.update(0);
     currentTime.value = activeMixer.time;
   }
 
@@ -80,10 +81,12 @@ export function useAnimationMixer() {
   }
 
   function stop(): void {
-    currentAction.value?.stop();
-    currentAction.value = null;
+    currentAction.value?.reset();
+    if (currentAction.value) currentAction.value.paused = true;
     mixer.value?.stopAllAction();
     mixer.value?.setTime(0);
+    currentAction.value?.play();
+    mixer.value?.update(0);
     currentTime.value = 0;
     isPlaying.value = false;
   }
@@ -107,8 +110,15 @@ export function useAnimationMixer() {
 
   function scrub(time: number): void {
     const nextTime = THREE.MathUtils.clamp(time, 0, duration.value);
-    syncMixerTime(nextTime);
-    if (currentAction.value) currentAction.value.time = nextTime;
+    if (currentAction.value) {
+      const wasPaused = currentAction.value.paused;
+      currentAction.value.paused = false;
+      currentAction.value.time = nextTime;
+      syncMixerTime(nextTime);
+      currentAction.value.paused = wasPaused;
+    } else {
+      syncMixerTime(nextTime);
+    }
   }
 
   function step(direction: -1 | 1, seconds = DEFAULT_STEP_SECONDS): void {

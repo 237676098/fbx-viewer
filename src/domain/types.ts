@@ -19,6 +19,29 @@ export type InspectorSection = {
   fields: InspectorField[];
 };
 
+export type TexturePreviewItem = {
+  id: string;
+  name: string;
+  slot: string;
+  materialName: string;
+  width: number | null;
+  height: number | null;
+  previewUrl: string | null;
+  fileName?: string | null;
+  status?: 'ready' | 'missing' | 'unresolved';
+};
+
+export type AssetPanelData = {
+  overview: {
+    sections: InspectorSection[];
+  };
+  animations: {
+    sections: InspectorSection[];
+  };
+  textures: TexturePreviewItem[];
+  textureSections: InspectorSection[];
+};
+
 export type SceneNodeInfo = {
   id: string;
   name: string;
@@ -34,6 +57,7 @@ export type LoadedFbx = {
   animations: THREE.AnimationClip[];
   loadMs: number;
   warnings: string[];
+  objectUrls?: string[];
 };
 
 export type OverviewStats = {

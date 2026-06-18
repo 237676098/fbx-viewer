@@ -32,7 +32,7 @@ export function extractNodeSections(object: THREE.Object3D): InspectorSection[] 
   return [
     {
       id: 'node',
-      title: 'Node',
+      title: '基础属性',
       fields: [
         field('object.name', object.name, object.name || '(unnamed)'),
         field('object.uuid', object.uuid),

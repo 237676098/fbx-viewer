@@ -20,6 +20,12 @@ describe('mesh extractor', () => {
 
     const sections = extractMeshSections(mesh);
 
+    expect(sections.map((section) => section.title)).toEqual([
+      '网格摘要',
+      '几何属性',
+      '几何分组',
+      '包围范围',
+    ]);
     expect(fieldValue(sections, 'geometry.attributes.position.count')).toBe(4);
     expect(fieldValue(sections, 'geometry.attributes.position.itemSize')).toBe(3);
     expect(fieldValue(sections, 'geometry.attributes.normal.count')).toBe(4);

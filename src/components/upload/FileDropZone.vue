@@ -1,27 +1,28 @@
 <script setup lang="ts">
 const emit = defineEmits<{
-  file: [file: File];
+  file: [file: File, files: File[]];
 }>();
 
-function emitFirstFile(fileList: FileList | null): void {
-  const file = fileList?.[0];
-  if (file) emit('file', file);
+function emitFiles(fileList: FileList | null): void {
+  const files = Array.from(fileList ?? []);
+  const file = files.find((candidate) => candidate.name.toLowerCase().endsWith('.fbx')) ?? files[0];
+  if (file) emit('file', file, files);
 }
 
 function onInput(event: Event): void {
-  emitFirstFile((event.target as HTMLInputElement).files);
+  emitFiles((event.target as HTMLInputElement).files);
 }
 
 function onDrop(event: DragEvent): void {
   event.preventDefault();
-  emitFirstFile(event.dataTransfer?.files ?? null);
+  emitFiles(event.dataTransfer?.files ?? null);
 }
 </script>
 
 <template>
   <label class="drop-zone" @dragover.prevent @drop="onDrop">
-    <span>Choose or drop .fbx</span>
-    <input type="file" accept=".fbx" aria-label="Choose FBX file" @change="onInput" />
+    <span>选择或拖入 .fbx / 贴图</span>
+    <input type="file" multiple accept=".fbx,image/*" aria-label="选择 FBX 文件" @change="onInput" />
   </label>
 </template>
 

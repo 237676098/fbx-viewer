@@ -112,7 +112,7 @@ export function extractMaterialSections(
     return [
       {
         id: 'material',
-        title: 'Material',
+        title: '材质属性',
         fields: extractSingleMaterialFields(materials[0], 'material'),
       },
     ];
@@ -121,7 +121,7 @@ export function extractMaterialSections(
   return [
     {
       id: 'materials',
-      title: 'Materials',
+      title: '材质列表',
       fields: [
         field('material.count', materials.length),
         ...materials.flatMap((material, index) => extractSingleMaterialFields(material, `materials.${index}`)),

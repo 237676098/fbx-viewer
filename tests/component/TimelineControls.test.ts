@@ -5,8 +5,8 @@ import TimelineControls from '../../src/components/viewport/TimelineControls.vue
 describe('TimelineControls', () => {
   const baseProps = {
     clips: [
-      { id: 'clip-0', label: 'Idle' },
-      { id: 'clip-1', label: 'Run' },
+      { id: 'clip-0', label: 'CharacterArmature|Idle' },
+      { id: 'clip-1', label: 'CharacterArmature|Run' },
       { id: 'clip-2', label: 'Run' },
     ],
     currentClipId: 'clip-0',
@@ -25,20 +25,22 @@ describe('TimelineControls', () => {
       props: baseProps,
     });
 
-    expect(wrapper.get('select[aria-label="Animation clip"]').text()).toContain('Idle');
-    expect(wrapper.get('select[aria-label="Animation clip"]').text()).toContain('Run');
-    expect(wrapper.findAll('select[aria-label="Animation clip"] option').map((option) => option.attributes('value'))).toEqual([
+    expect(wrapper.get('select[aria-label="动画片段"]').text()).toContain('Idle');
+    expect(wrapper.get('select[aria-label="动画片段"]').text()).toContain('Run');
+    expect(wrapper.findAll('select[aria-label="动画片段"] option').map((option) => option.attributes('value'))).toEqual([
       'clip-0',
       'clip-1',
       'clip-2',
     ]);
-    expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(true);
-    expect(wrapper.find('button[aria-label="Stop"]').exists()).toBe(true);
-    expect(wrapper.get('input[aria-label="Animation time"]').attributes('max')).toBe('3.5');
+    expect(wrapper.get('select[aria-label="动画片段"] option').text()).toBe('Idle');
+    expect(wrapper.get('select[aria-label="动画片段"] option').attributes('data-rig')).toBe('CharacterArmature');
+    expect(wrapper.find('button[aria-label="播放"]').exists()).toBe(true);
+    expect(wrapper.find('button[aria-label="停止"]').exists()).toBe(true);
+    expect(wrapper.get('input[aria-label="动画时间"]').attributes('max')).toBe('3.5');
     expect(wrapper.text()).toContain('1.250s / 3.500s');
-    expect(wrapper.text()).toContain('6 tracks');
-    expect(wrapper.text()).toContain('48 keys');
-    expect(wrapper.text()).toContain('3 nodes');
+    expect(wrapper.text()).toContain('6 轨道');
+    expect(wrapper.text()).toContain('48 关键帧');
+    expect(wrapper.text()).toContain('3 节点');
   });
 
   it('emits controls for playback, stepping, scrubbing, clip, speed, and loop changes', async () => {
@@ -46,14 +48,14 @@ describe('TimelineControls', () => {
       props: baseProps,
     });
 
-    await wrapper.get('button[aria-label="Play"]').trigger('click');
-    await wrapper.get('button[aria-label="Stop"]').trigger('click');
-    await wrapper.get('button[aria-label="Previous frame"]').trigger('click');
-    await wrapper.get('button[aria-label="Next frame"]').trigger('click');
-    await wrapper.get('input[aria-label="Animation time"]').setValue('2');
-    await wrapper.get('select[aria-label="Animation clip"]').setValue('clip-2');
-    await wrapper.get('select[aria-label="Playback speed"]').setValue('0.5');
-    await wrapper.get('input[aria-label="Loop animation"]').setValue(false);
+    await wrapper.get('button[aria-label="播放"]').trigger('click');
+    await wrapper.get('button[aria-label="停止"]').trigger('click');
+    await wrapper.get('button[aria-label="上一帧"]').trigger('click');
+    await wrapper.get('button[aria-label="下一帧"]').trigger('click');
+    await wrapper.get('input[aria-label="动画时间"]').setValue('2');
+    await wrapper.get('select[aria-label="动画片段"]').setValue('clip-2');
+    await wrapper.get('select[aria-label="播放速度"]').setValue('0.5');
+    await wrapper.get('input[aria-label="循环播放"]').setValue(false);
 
     expect(wrapper.emitted('play')).toHaveLength(1);
     expect(wrapper.emitted('stop')).toHaveLength(1);
@@ -70,6 +72,6 @@ describe('TimelineControls', () => {
       props: { ...baseProps, isPlaying: true },
     });
 
-    expect(wrapper.find('button[aria-label="Pause"]').exists()).toBe(true);
+    expect(wrapper.find('button[aria-label="暂停"]').exists()).toBe(true);
   });
 });

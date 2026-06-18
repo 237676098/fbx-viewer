@@ -12,6 +12,11 @@ type TextureImage = {
   naturalHeight?: number;
 };
 
+export type TextureExtractionContext = {
+  slot?: string;
+  materialName?: string;
+};
+
 function field(
   path: string,
   value: unknown,
@@ -33,12 +38,17 @@ function imageDimension(image: unknown, dimension: 'width' | 'height'): number |
   return values.find((value): value is number => typeof value === 'number') ?? null;
 }
 
-export function extractTextureSections(texture: THREE.Texture): InspectorSection[] {
+export function extractTextureSections(
+  texture: THREE.Texture,
+  context: TextureExtractionContext = {},
+): InspectorSection[] {
   return [
     {
       id: 'texture',
-      title: 'Texture',
+      title: context.slot ? `纹理属性：${context.slot}` : '纹理属性',
       fields: [
+        field('texture.slot', context.slot ?? null, context.slot ?? 'unknown'),
+        field('texture.material', context.materialName ?? null, context.materialName ?? 'unknown'),
         field('texture.name', texture.name, texture.name || '(unnamed)'),
         field('texture.uuid', texture.uuid),
         field('texture.image.width', imageDimension(texture.image, 'width')),

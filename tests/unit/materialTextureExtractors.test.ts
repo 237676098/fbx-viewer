@@ -28,6 +28,7 @@ describe('material and texture extractors', () => {
     });
 
     const materialSections = extractMaterialSections(material);
+    expect(materialSections[0].title).toBe('材质属性');
     expect(materialFieldValue(materialSections, 'material.name')).toBe('BodyMat');
     expect(materialFieldValue(materialSections, 'material.type')).toBe('MeshStandardMaterial');
     expect(materialFieldValue(materialSections, 'material.roughness')).toBe(0.7);
@@ -38,8 +39,11 @@ describe('material and texture extractors', () => {
     ).toContain('Diffuse');
     expect(materialFieldValue(materialSections, 'material.normalMap')).toBe(null);
 
-    const textureSections = extractTextureSections(texture);
+    const textureSections = extractTextureSections(texture, { slot: 'map', materialName: 'BodyMat' });
+    expect(textureSections[0].title).toBe('纹理属性：map');
     expect(textureFieldValue(textureSections, 'texture.name')).toBe('Diffuse');
+    expect(textureFieldValue(textureSections, 'texture.slot')).toBe('map');
+    expect(textureFieldValue(textureSections, 'texture.material')).toBe('BodyMat');
     expect(textureFieldValue(textureSections, 'texture.image.width')).toBe(128);
     expect(textureFieldValue(textureSections, 'texture.image.height')).toBe(64);
     expect(textureFieldValue(textureSections, 'texture.colorSpace')).toBe(THREE.SRGBColorSpace);

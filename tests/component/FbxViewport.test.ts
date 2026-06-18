@@ -103,8 +103,8 @@ describe('FbxViewport', () => {
     });
     activeWrapper = wrapper;
 
-    await wrapper.get('button[aria-label="Hide grid"]').trigger('click');
-    await wrapper.get('input[aria-label="Exposure"]').setValue('1.5');
+    await wrapper.get('button[aria-label="隐藏网格"]').trigger('click');
+    await wrapper.get('input[aria-label="曝光"]').setValue('1.5');
 
     expect(diagnosticFlags.grid).toBe(true);
     expect(diagnosticFlags.exposure).toBe(1);
@@ -176,10 +176,10 @@ describe('FbxViewport', () => {
     });
     activeWrapper = wrapper;
 
-    await wrapper.get('button[aria-label="Download screenshot"]').trigger('click');
+    await wrapper.get('button[aria-label="下载截图"]').trigger('click');
     expect(click).not.toHaveBeenCalled();
 
-    await wrapper.get('button[aria-label="Download screenshot"]').trigger('click');
+    await wrapper.get('button[aria-label="下载截图"]').trigger('click');
     await nextTick();
 
     expect(click).toHaveBeenCalledTimes(1);

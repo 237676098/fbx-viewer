@@ -26,6 +26,7 @@ describe('scene and skeleton extractors', () => {
     expect(nodes[0].children[0].depth).toBe(1);
 
     const sections = extractNodeSections(child);
+    expect(sections[0].title).toBe('基础属性');
     expect(nodeFieldValue(sections, 'object.name')).toBe('Cube');
     expect(nodeFieldValue(sections, 'object.uuid')).toBe(child.uuid);
     expect(nodeFieldValue(sections, 'object.type')).toBe('Mesh');
@@ -49,6 +50,7 @@ describe('scene and skeleton extractors', () => {
 
     const sections = extractSkeletonSections(mesh);
 
+    expect(sections[0].title).toBe('骨骼绑定');
     expect(skeletonFieldValue(sections, 'skeleton.isSkinnedMesh')).toBe(true);
     expect(skeletonFieldValue(sections, 'skeleton.bones.length')).toBe(1);
     expect(skeletonFieldValue(sections, 'skeleton.boneInverses.length')).toBe(1);

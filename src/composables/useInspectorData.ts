@@ -1,6 +1,11 @@
 import { computed, type ComputedRef, type Ref } from 'vue';
 import type * as THREE from 'three';
-import type { InspectorField, InspectorSection, LoadedFbx } from '../domain/types';
+import type {
+  AssetPanelData,
+  InspectorSection,
+  LoadedFbx,
+  TexturePreviewItem,
+} from '../domain/types';
 import { extractAnimationSections } from '../domain/extractors/animationExtractor';
 import { collectMaterialTextures, collectMaterials } from '../domain/extractors/materialExtractor';
 import { extractMaterialSections } from '../domain/extractors/materialExtractor';
@@ -9,12 +14,12 @@ import { extractOverview } from '../domain/extractors/overviewExtractor';
 import { extractNodeSections } from '../domain/extractors/sceneExtractor';
 import { extractSkeletonSections } from '../domain/extractors/skeletonExtractor';
 import { extractTextureSections } from '../domain/extractors/textureExtractor';
-import { serializeThreeObject } from '../utils/threeObjectSerialize';
 
 export type InspectorTab = {
   id: string;
   label: string;
   sections: InspectorSection[];
+  texturePreviews?: TexturePreviewItem[];
 };
 
 function isMesh(object: THREE.Object3D): object is THREE.Mesh {
@@ -25,46 +30,130 @@ function isSkinnedMesh(object: THREE.Object3D): object is THREE.SkinnedMesh {
   return 'isSkinnedMesh' in object && object.isSkinnedMesh === true;
 }
 
-function collectObjectTextures(object: THREE.Object3D): THREE.Texture[] {
-  const textures = new Set<THREE.Texture>();
+export type CollectedTexture = {
+  texture: THREE.Texture;
+  slot: string;
+  materialName: string;
+};
 
-  for (const material of collectMaterials((object as { material?: unknown }).material)) {
-    for (const [, texture] of collectMaterialTextures(material)) {
-      textures.add(texture);
+export function collectObjectTextures(object: THREE.Object3D): CollectedTexture[] {
+  const textures = new Map<string, CollectedTexture>();
+
+  object.traverse((child) => {
+    for (const material of collectMaterials((child as { material?: unknown }).material)) {
+      for (const [slot, texture] of collectMaterialTextures(material)) {
+        const key = texture.uuid || `${material.uuid}:${slot}`;
+        if (!textures.has(key)) {
+          textures.set(key, {
+            texture,
+            slot,
+            materialName: material.name || material.type,
+          });
+        }
+      }
     }
-  }
+  });
 
-  return Array.from(textures);
+  return Array.from(textures.values());
 }
 
-function safeStringify(value: unknown): string {
-  try {
-    return JSON.stringify(
-      value,
-      (_key, child) => (typeof child === 'bigint' ? `${child.toString()}n` : child),
-      2,
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return `[Unserializable raw object: ${message}]`;
-  }
-}
+function imageDimension(image: unknown, dimension: 'width' | 'height'): number | null {
+  if (!image || typeof image !== 'object') return null;
 
-function rawSection(object: unknown): InspectorSection {
-  const value = serializeThreeObject(object);
-  const displayValue = safeStringify(value);
-  const field: InspectorField = {
-    path: 'raw',
-    value,
-    displayValue,
-    source: 'serializeThreeObject',
-    copyValue: displayValue,
+  const candidate = image as {
+    width?: number;
+    height?: number;
+    videoWidth?: number;
+    videoHeight?: number;
+    naturalWidth?: number;
+    naturalHeight?: number;
   };
+  const values =
+    dimension === 'width'
+      ? [candidate.width, candidate.videoWidth, candidate.naturalWidth]
+      : [candidate.height, candidate.videoHeight, candidate.naturalHeight];
+
+  return values.find((value): value is number => typeof value === 'number') ?? null;
+}
+
+function texturePreviewUrl(texture: THREE.Texture): string | null {
+  const image = texture.image;
+  if (!image || typeof image !== 'object') return null;
+
+  const candidate = image as { src?: unknown; currentSrc?: unknown };
+  return (
+    (typeof candidate.currentSrc === 'string' && candidate.currentSrc) ||
+    (typeof candidate.src === 'string' && candidate.src) ||
+    null
+  );
+}
+
+function textureFileName(texture: THREE.Texture): string | null {
+  const userData = texture.userData as Record<string, unknown>;
+  const candidates = [
+    userData.relativeFilename,
+    userData.RelativeFilename,
+    userData.FileName,
+    userData.filename,
+    userData.fileName,
+    texture.name,
+  ];
+  const value = candidates.find((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0);
+  if (!value) return null;
+
+  return value.split(/[\\/]/).filter(Boolean).at(-1) ?? value;
+}
+
+export function texturePreviewItem(entry: CollectedTexture, index: number): TexturePreviewItem {
+  const previewUrl = texturePreviewUrl(entry.texture);
+  const width = imageDimension(entry.texture.image, 'width');
+  const height = imageDimension(entry.texture.image, 'height');
 
   return {
-    id: 'raw',
-    title: 'Raw Object',
-    fields: [field],
+    id: entry.texture.uuid || `${entry.materialName}-${entry.slot}-${index}`,
+    name: entry.texture.name,
+    slot: entry.slot,
+    materialName: entry.materialName,
+    width,
+    height,
+    previewUrl,
+    fileName: textureFileName(entry.texture),
+    status: previewUrl || (width && height) ? 'ready' : 'missing',
+  };
+}
+
+type FbxAssetInput = {
+  fileName: string;
+  fileSize: number;
+  loadMs: number;
+  root: THREE.Group;
+  animations: THREE.AnimationClip[];
+  warnings: string[];
+};
+
+export function collectFbxAssets(input: FbxAssetInput): AssetPanelData {
+  const textures = collectObjectTextures(input.root);
+  return {
+    overview: {
+      sections: extractOverview(input),
+    },
+    animations: {
+      sections:
+        input.animations.length > 0
+          ? extractAnimationSections(input.animations, { includeTracks: false })
+          : [],
+    },
+    textures: textures.map(texturePreviewItem),
+    textureSections: textures.flatMap((entry, index) =>
+      extractTextureSections(entry.texture, {
+        slot: entry.slot,
+        materialName: entry.materialName,
+      }).map((section) => ({
+        ...section,
+        id: textures.length === 1 ? section.id : `${section.id}-${index}`,
+        title: `${entry.slot} - ${entry.texture.name || entry.materialName || `纹理 ${index + 1}`}`,
+      })),
+    ),
   };
 }
 
@@ -79,20 +168,8 @@ export function useInspectorData(
     const selectedObject = selected.value ?? fbx.root;
     const tabs: InspectorTab[] = [
       {
-        id: 'overview',
-        label: 'Overview',
-        sections: extractOverview({
-          fileName: fbx.file.name,
-          fileSize: fbx.file.size,
-          loadMs: fbx.loadMs,
-          root: fbx.root,
-          animations: fbx.animations,
-          warnings: fbx.warnings,
-        }),
-      },
-      {
         id: 'node',
-        label: 'Node',
+        label: '节点',
         sections: extractNodeSections(selectedObject),
       },
     ];
@@ -100,54 +177,59 @@ export function useInspectorData(
     if (isMesh(selectedObject)) {
       tabs.push({
         id: 'mesh',
-        label: 'Mesh',
+        label: '网格',
         sections: extractMeshSections(selectedObject),
       });
 
       tabs.push({
         id: 'materials',
-        label: 'Materials',
+        label: '材质',
         sections: extractMaterialSections(selectedObject.material),
       });
-
-      const textures = collectObjectTextures(selectedObject);
-      if (textures.length > 0) {
-        tabs.push({
-          id: 'textures',
-          label: 'Textures',
-          sections: textures.flatMap((texture, index) =>
-            extractTextureSections(texture).map((section) => ({
-              ...section,
-              id: textures.length === 1 ? section.id : `${section.id}-${index}`,
-              title: textures.length === 1 ? section.title : `${section.title} ${index + 1}`,
-            })),
-          ),
-        });
-      }
     }
 
     if (isSkinnedMesh(selectedObject)) {
       tabs.push({
         id: 'skeleton',
-        label: 'Skeleton',
+        label: '骨骼',
         sections: extractSkeletonSections(selectedObject),
       });
     }
-
-    if (fbx.animations.length > 0) {
+    const textures = collectObjectTextures(selectedObject);
+    if (textures.length > 0) {
       tabs.push({
-        id: 'animation',
-        label: 'Animation',
-        sections: extractAnimationSections(fbx.animations),
+        id: 'textures',
+        label: '纹理',
+        texturePreviews: textures.map(texturePreviewItem),
+        sections: textures.flatMap((entry, index) =>
+          extractTextureSections(entry.texture, {
+            slot: entry.slot,
+            materialName: entry.materialName,
+          }).map((section) => ({
+            ...section,
+            id: textures.length === 1 ? section.id : `${section.id}-${index}`,
+            title: `${entry.slot} - ${entry.texture.name || entry.materialName || `纹理 ${index + 1}`}`,
+          })),
+        ),
       });
     }
 
-    tabs.push({
-      id: 'raw',
-      label: 'Raw',
-      sections: [rawSection(selectedObject)],
-    });
-
     return tabs;
+  });
+}
+
+export function useAssetPanelData(loaded: Ref<LoadedFbx | null>): ComputedRef<AssetPanelData | null> {
+  return computed(() => {
+    const fbx = loaded.value;
+    if (!fbx) return null;
+
+    return collectFbxAssets({
+      fileName: fbx.file.name,
+      fileSize: fbx.file.size,
+      loadMs: fbx.loadMs,
+      root: fbx.root,
+      animations: fbx.animations,
+      warnings: fbx.warnings,
+    });
   });
 }
