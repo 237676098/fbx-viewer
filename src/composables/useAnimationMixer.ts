@@ -11,6 +11,7 @@ export function useAnimationMixer() {
   const currentTime = shallowRef(0);
   const speed = shallowRef(1);
   const loop = shallowRef(true);
+  let activeRoot: THREE.Object3D | null = null;
 
   const duration = computed(() => currentClip.value?.duration ?? 0);
 
@@ -23,11 +24,23 @@ export function useAnimationMixer() {
   }
 
   function setRoot(root: THREE.Object3D | null): void {
+    const previousMixer = mixer.value;
+    const previousRoot = activeRoot;
+
     stop();
+    if (previousMixer && previousRoot) {
+      previousMixer.uncacheRoot(previousRoot);
+    }
+
+    activeRoot = root;
     mixer.value = root ? new THREE.AnimationMixer(root) : null;
   }
 
   function setClip(clip: THREE.AnimationClip | null): void {
+    if (currentClip.value && mixer.value) {
+      mixer.value.uncacheClip(currentClip.value);
+    }
+
     currentAction.value?.stop();
     currentClip.value = clip;
     currentTime.value = 0;
@@ -51,6 +64,11 @@ export function useAnimationMixer() {
 
   function play(): void {
     if (!currentAction.value) return;
+    if (duration.value > 0 && currentTime.value >= duration.value) {
+      scrub(0);
+      currentAction.value.reset().play();
+    }
+
     currentAction.value.paused = false;
     isPlaying.value = true;
   }
@@ -64,11 +82,27 @@ export function useAnimationMixer() {
   function stop(): void {
     currentAction.value?.stop();
     currentAction.value = null;
-    currentClip.value = null;
     mixer.value?.stopAllAction();
     mixer.value?.setTime(0);
     currentTime.value = 0;
     isPlaying.value = false;
+  }
+
+  function dispose(): void {
+    const previousMixer = mixer.value;
+    const previousRoot = activeRoot;
+
+    stop();
+    if (currentClip.value && previousMixer) {
+      previousMixer.uncacheClip(currentClip.value);
+    }
+    if (previousMixer && previousRoot) {
+      previousMixer.uncacheRoot(previousRoot);
+    }
+
+    currentClip.value = null;
+    mixer.value = null;
+    activeRoot = null;
   }
 
   function scrub(time: number): void {
@@ -131,5 +165,6 @@ export function useAnimationMixer() {
     update,
     setSpeed,
     setLoop,
+    dispose,
   };
 }

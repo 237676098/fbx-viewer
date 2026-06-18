@@ -1,13 +1,73 @@
 import { onBeforeUnmount, shallowRef, watch, type Ref } from 'vue';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
 import type { ViewportDebugFlags } from './useViewportDiagnostics';
 
 type DisposableObject = THREE.Object3D & { dispose?: () => void };
+type DisposableResource = { dispose?: () => void };
+type MeshWithMaterial = THREE.Mesh & { material: THREE.Material | THREE.Material[] };
+type MaterialState = {
+  wireframe?: boolean;
+  textures: Map<string, THREE.Texture | null>;
+};
 
 function disposeObject(object: THREE.Object3D): void {
   const disposable = object as DisposableObject;
   disposable.dispose?.();
+}
+
+function isMesh(object: THREE.Object3D): object is MeshWithMaterial {
+  return 'isMesh' in object && object.isMesh === true && 'material' in object;
+}
+
+function isTexture(value: unknown): value is THREE.Texture {
+  return Boolean(value && typeof value === 'object' && 'isTexture' in value && value.isTexture === true);
+}
+
+function disposeResource(value: unknown): void {
+  const disposable = value as DisposableResource;
+  disposable?.dispose?.();
+}
+
+function collectMaterials(value: THREE.Material | THREE.Material[]): THREE.Material[] {
+  return Array.isArray(value) ? value : [value];
+}
+
+function disposeMaterial(material: THREE.Material): void {
+  const seenTextures = new Set<THREE.Texture>();
+
+  for (const value of Object.values(material)) {
+    if (isTexture(value)) seenTextures.add(value);
+  }
+
+  for (const texture of seenTextures) {
+    disposeResource(texture);
+  }
+
+  material.dispose();
+}
+
+function disposeSceneRoot(object: THREE.Object3D): void {
+  const seenGeometries = new Set<THREE.BufferGeometry>();
+  const seenMaterials = new Set<THREE.Material>();
+
+  object.traverse((child) => {
+    if (!isMesh(child)) return;
+
+    if (child.geometry) seenGeometries.add(child.geometry);
+    for (const material of collectMaterials(child.material)) {
+      seenMaterials.add(material);
+    }
+  });
+
+  for (const geometry of seenGeometries) {
+    geometry.dispose();
+  }
+
+  for (const material of seenMaterials) {
+    disposeMaterial(material);
+  }
 }
 
 function disposeGroupChildren(group: THREE.Group): void {
@@ -25,6 +85,9 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   const controls = shallowRef<OrbitControls | null>(null);
 
   const helperGroup = new THREE.Group();
+  const overrideMaterial = new THREE.MeshNormalMaterial();
+  const originalMeshMaterials = new WeakMap<MeshWithMaterial, THREE.Material | THREE.Material[]>();
+  const originalMaterialStates = new WeakMap<THREE.Material, MaterialState>();
   const clock = new THREE.Clock();
   const resizeObserver =
     typeof ResizeObserver === 'undefined'
@@ -40,8 +103,20 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   camera.value.position.set(2, 2, 4);
 
   const stopDiagnosticsWatch = watch(
-    () => [flags.grid, flags.axes, flags.bounds, flags.skeleton, flags.exposure] as const,
+    () =>
+      [
+        flags.grid,
+        flags.axes,
+        flags.bounds,
+        flags.skeleton,
+        flags.wireframe,
+        flags.normals,
+        flags.materialOverride,
+        flags.textures,
+        flags.exposure,
+      ] as const,
     () => {
+      applyMaterialDiagnostics();
       rebuildHelpers();
     },
   );
@@ -84,15 +159,25 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   }
 
   function setRoot(nextRoot: THREE.Object3D | null): void {
-    if (root) scene.value.remove(root);
+    const previousRoot = root;
+    if (previousRoot) {
+      restoreMaterialDiagnostics(previousRoot);
+      scene.value.remove(previousRoot);
+    }
+
     root = nextRoot;
 
     if (root) {
       scene.value.add(root);
+      applyMaterialDiagnostics();
       frameObject(root);
     }
 
     rebuildHelpers();
+
+    if (previousRoot && previousRoot !== nextRoot) {
+      disposeSceneRoot(previousRoot);
+    }
   }
 
   function frameObject(object: THREE.Object3D): void {
@@ -124,10 +209,94 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
       helperGroup.add(new THREE.Box3Helper(new THREE.Box3().setFromObject(root), 0x58a6ff));
     }
     if (flags.skeleton && root) helperGroup.add(new THREE.SkeletonHelper(root));
+    if (flags.normals && root) {
+      root.traverse((object) => {
+        if (isMesh(object)) helperGroup.add(new VertexNormalsHelper(object, 0.1, 0x7dd3fc));
+      });
+    }
 
     if (renderer.value) {
       renderer.value.toneMappingExposure = flags.exposure;
     }
+  }
+
+  function rememberMaterialState(material: THREE.Material): MaterialState {
+    const existing = originalMaterialStates.get(material);
+    if (existing) return existing;
+
+    const state: MaterialState = { textures: new Map() };
+    const candidate = material as unknown as Record<string, unknown>;
+
+    if ('wireframe' in candidate && typeof candidate.wireframe === 'boolean') {
+      state.wireframe = candidate.wireframe;
+    }
+
+    for (const [key, value] of Object.entries(candidate)) {
+      if (isTexture(value)) state.textures.set(key, value);
+    }
+
+    originalMaterialStates.set(material, state);
+    return state;
+  }
+
+  function applyMaterialFlags(material: THREE.Material): void {
+    const state = rememberMaterialState(material);
+    const candidate = material as unknown as Record<string, unknown>;
+
+    if (state.wireframe !== undefined) {
+      candidate.wireframe = flags.wireframe;
+    }
+
+    for (const key of state.textures.keys()) {
+      candidate[key] = flags.textures ? state.textures.get(key) ?? null : null;
+    }
+
+    material.needsUpdate = true;
+  }
+
+  function applyMaterialDiagnostics(): void {
+    if (!root) return;
+
+    overrideMaterial.wireframe = flags.wireframe;
+    overrideMaterial.needsUpdate = true;
+
+    root.traverse((object) => {
+      if (!isMesh(object)) return;
+
+      if (!originalMeshMaterials.has(object)) {
+        originalMeshMaterials.set(object, object.material);
+      }
+
+      const originalMaterial = originalMeshMaterials.get(object);
+      if (!originalMaterial) return;
+
+      for (const material of collectMaterials(originalMaterial)) {
+        applyMaterialFlags(material);
+      }
+
+      object.material = flags.materialOverride ? overrideMaterial : originalMaterial;
+    });
+  }
+
+  function restoreMaterialDiagnostics(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      if (!isMesh(child)) return;
+
+      const originalMaterial = originalMeshMaterials.get(child);
+      if (originalMaterial) child.material = originalMaterial;
+
+      for (const material of collectMaterials(child.material)) {
+        const state = originalMaterialStates.get(material);
+        if (!state) continue;
+
+        const candidate = material as unknown as Record<string, unknown>;
+        if (state.wireframe !== undefined) candidate.wireframe = state.wireframe;
+        for (const [key, texture] of state.textures) {
+          candidate[key] = texture;
+        }
+        material.needsUpdate = true;
+      }
+    });
   }
 
   function render(): void {
@@ -144,6 +313,13 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   }
 
   function dispose(): void {
+    const previousRoot = root;
+    if (previousRoot) {
+      restoreMaterialDiagnostics(previousRoot);
+      scene.value.remove(previousRoot);
+      root = null;
+    }
+
     mounted = false;
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
@@ -152,6 +328,11 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
     controls.value?.dispose();
     controls.value = null;
     disposeGroupChildren(helperGroup);
+    overrideMaterial.dispose();
+
+    if (previousRoot) {
+      disposeSceneRoot(previousRoot);
+    }
 
     const activeRenderer = renderer.value;
     if (activeRenderer) {

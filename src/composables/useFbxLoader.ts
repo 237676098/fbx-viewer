@@ -16,16 +16,22 @@ export function useFbxLoader() {
   const loaded = shallowRef<LoadedFbx | null>(null);
   const loading = shallowRef(false);
   const error = shallowRef<string | null>(null);
+  let requestId = 0;
 
   async function loadFile(file: File): Promise<LoadedFbx | null> {
+    const currentRequestId = ++requestId;
     const validationError = validateFile(file);
-    error.value = validationError;
 
     if (validationError) {
-      loaded.value = null;
+      if (currentRequestId === requestId) {
+        error.value = validationError;
+        loaded.value = null;
+        loading.value = false;
+      }
       return null;
     }
 
+    error.value = null;
     loading.value = true;
     const loader = new FBXLoader();
     const url = URL.createObjectURL(file);
@@ -41,17 +47,23 @@ export function useFbxLoader() {
         warnings: [],
       };
 
-      loaded.value = result;
-      error.value = null;
+      if (currentRequestId === requestId) {
+        loaded.value = result;
+        error.value = null;
+      }
       return result;
     } catch (caught) {
       const message = `Failed to parse FBX: ${getErrorMessage(caught)}`;
-      error.value = message;
-      loaded.value = null;
+      if (currentRequestId === requestId) {
+        error.value = message;
+        loaded.value = null;
+      }
       return null;
     } finally {
       URL.revokeObjectURL(url);
-      loading.value = false;
+      if (currentRequestId === requestId) {
+        loading.value = false;
+      }
     }
   }
 

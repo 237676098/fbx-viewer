@@ -37,14 +37,28 @@ function collectObjectTextures(object: THREE.Object3D): THREE.Texture[] {
   return Array.from(textures);
 }
 
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(
+      value,
+      (_key, child) => (typeof child === 'bigint' ? `${child.toString()}n` : child),
+      2,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return `[Unserializable raw object: ${message}]`;
+  }
+}
+
 function rawSection(object: unknown): InspectorSection {
   const value = serializeThreeObject(object);
+  const displayValue = safeStringify(value);
   const field: InspectorField = {
     path: 'raw',
     value,
-    displayValue: JSON.stringify(value, null, 2),
+    displayValue,
     source: 'serializeThreeObject',
-    copyValue: JSON.stringify(value, null, 2),
+    copyValue: displayValue,
   };
 
   return {
