@@ -55,9 +55,17 @@ function serializeValue(
   seen.add(value);
 
   if (Array.isArray(value)) {
-    const output = value
-      .slice(0, options.maxArrayItems)
-      .map((item) => serializeValue(item, depth + 1, options, seen));
+    const output: unknown[] = [];
+    const itemCount = Math.min(value.length, options.maxArrayItems);
+
+    for (let index = 0; index < itemCount; index += 1) {
+      try {
+        output.push(serializeValue(value[index], depth + 1, options, seen));
+      } catch (error) {
+        output.push(`[Unreadable: ${getErrorMessage(error)}]`);
+      }
+    }
+
     const remainingItems = value.length - output.length;
     if (remainingItems > 0) output.push(`[Truncated ${remainingItems} more items]`);
 

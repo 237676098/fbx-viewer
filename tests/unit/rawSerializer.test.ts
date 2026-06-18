@@ -67,4 +67,17 @@ describe('serializeThreeObject', () => {
     expect(serialized.safe).toBe(true);
     expect(serialized.danger).toBe('[Unreadable: getter failed]');
   });
+
+  it('serializes throwing array index getters as unreadable values', () => {
+    const value = ['fallback', 'safe'];
+    Object.defineProperty(value, '0', {
+      enumerable: true,
+      get() {
+        throw new Error('array getter failed');
+      },
+    });
+
+    expect(() => serializeThreeObject(value)).not.toThrow();
+    expect(serializeThreeObject(value)).toEqual(['[Unreadable: array getter failed]', 'safe']);
+  });
 });
