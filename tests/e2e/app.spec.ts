@@ -15,8 +15,15 @@ test('renders the no-file workbench shell', async ({ page }) => {
   await expect(page.locator('.viewport-empty')).toContainText(/No FBX loaded/i);
   await expect(page.locator('.viewport-empty')).toContainText(/choose or drop/i);
   await expect(page.locator('.timeline-empty')).toContainText('No animation clips in the current file.');
-  await expect(page.locator('.inspector-panel')).toBeVisible();
-  await expect(page.locator('.inspector-empty')).toContainText('No inspector data');
+
+  const inspector = page.getByRole('complementary', { name: 'Inspector' });
+  await expect(inspector.locator('.pane-header')).toContainText('Inspector');
+  await expect(inspector.locator('.pane-header')).toContainText('0 tabs');
+  await expect(inspector.locator('.inspector-panel')).toBeVisible();
+  await expect(inspector.locator('.inspector-empty')).toBeVisible();
+  await expect(inspector.locator('.inspector-empty')).toContainText('No inspector data');
+  await expect(inspector.getByRole('tablist')).toHaveCount(0);
+
   await expect(page.locator('.status-strip')).toContainText('No file loaded');
 });
 
