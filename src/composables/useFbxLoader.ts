@@ -47,10 +47,10 @@ export function useFbxLoader() {
         warnings: [],
       };
 
-      if (currentRequestId === requestId) {
-        loaded.value = result;
-        error.value = null;
-      }
+      if (currentRequestId !== requestId) return null;
+
+      loaded.value = result;
+      error.value = null;
       return result;
     } catch (caught) {
       const message = `Failed to parse FBX: ${getErrorMessage(caught)}`;
