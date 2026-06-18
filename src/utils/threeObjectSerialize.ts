@@ -7,9 +7,15 @@ type NumericTypedArray = ArrayBufferView & {
 
 export type SerializeThreeObjectOptions = {
   maxDepth?: number;
+  maxArrayItems?: number;
+  maxObjectKeys?: number;
 };
 
 const DEFAULT_MAX_DEPTH = 4;
+const DEFAULT_MAX_ARRAY_ITEMS = 100;
+const DEFAULT_MAX_OBJECT_KEYS = 100;
+
+type ResolvedSerializeOptions = Required<SerializeThreeObjectOptions>;
 
 function isTypedArray(value: unknown): value is NumericTypedArray {
   return ArrayBuffer.isView(value) && !(value instanceof DataView) && 'length' in value;
@@ -26,7 +32,16 @@ function serializeFunction(value: { name?: string }): string {
   return value.name ? `[Function ${value.name}]` : '[Function]';
 }
 
-function serializeValue(value: unknown, depth: number, maxDepth: number, seen: WeakSet<object>): unknown {
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function serializeValue(
+  value: unknown,
+  depth: number,
+  options: ResolvedSerializeOptions,
+  seen: WeakSet<object>,
+): unknown {
   if (value === null || typeof value !== 'object') {
     return typeof value === 'function' ? serializeFunction(value) : value;
   }
@@ -35,21 +50,37 @@ function serializeValue(value: unknown, depth: number, maxDepth: number, seen: W
   if (value instanceof ArrayBuffer) return `ArrayBuffer byteLength=${value.byteLength}`;
   if (isDomElement(value)) return `[DOMElement ${value.nodeName ?? 'Element'}]`;
   if (seen.has(value)) return '[Circular]';
-  if (depth >= maxDepth) return '[MaxDepth]';
+  if (depth >= options.maxDepth) return '[MaxDepth]';
 
   seen.add(value);
 
   if (Array.isArray(value)) {
-    const output = value.map((item) => serializeValue(item, depth + 1, maxDepth, seen));
+    const output = value
+      .slice(0, options.maxArrayItems)
+      .map((item) => serializeValue(item, depth + 1, options, seen));
+    const remainingItems = value.length - output.length;
+    if (remainingItems > 0) output.push(`[Truncated ${remainingItems} more items]`);
+
     seen.delete(value);
     return output;
   }
 
   const output: Record<string, unknown> = {};
+  const keys = Object.keys(value);
+  const serializedKeys = keys.slice(0, options.maxObjectKeys);
 
-  for (const key of Object.keys(value)) {
-    const child = (value as Record<string, unknown>)[key];
-    output[key] = serializeValue(child, depth + 1, maxDepth, seen);
+  for (const key of serializedKeys) {
+    try {
+      const child = (value as Record<string, unknown>)[key];
+      output[key] = serializeValue(child, depth + 1, options, seen);
+    } catch (error) {
+      output[key] = `[Unreadable: ${getErrorMessage(error)}]`;
+    }
+  }
+
+  const remainingKeys = keys.length - serializedKeys.length;
+  if (remainingKeys > 0) {
+    output['[Truncated]'] = `${remainingKeys} more keys`;
   }
 
   seen.delete(value);
@@ -57,5 +88,14 @@ function serializeValue(value: unknown, depth: number, maxDepth: number, seen: W
 }
 
 export function serializeThreeObject(value: unknown, options: SerializeThreeObjectOptions = {}): unknown {
-  return serializeValue(value, 0, options.maxDepth ?? DEFAULT_MAX_DEPTH, new WeakSet<object>());
+  return serializeValue(
+    value,
+    0,
+    {
+      maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH,
+      maxArrayItems: options.maxArrayItems ?? DEFAULT_MAX_ARRAY_ITEMS,
+      maxObjectKeys: options.maxObjectKeys ?? DEFAULT_MAX_OBJECT_KEYS,
+    },
+    new WeakSet<object>(),
+  );
 }

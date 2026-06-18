@@ -32,24 +32,59 @@ describe('extractAnimationSections', () => {
 
     const sections = extractAnimationSections([clip]);
 
-    expect(fieldValue(sections, 'clip.name')).toBe('Walk');
-    expect(fieldValue(sections, 'clip.duration')).toBe(1.25);
-    expect(fieldDisplay(sections, 'clip.duration')).toBe('1.250s');
-    expect(fieldValue(sections, 'clip.tracks.length')).toBe(2);
-    expect(fieldValue(sections, 'clip.totalKeyframes')).toBe(3);
-    expect(fieldValue(sections, 'clip.involvedNodeCount')).toBe(2);
-    expect(fieldValue(sections, 'clip.propertyTypes')).toEqual(['position', 'weight']);
+    expect(fieldValue(sections, 'animations.0.clip.name')).toBe('Walk');
+    expect(fieldValue(sections, 'animations.0.clip.duration')).toBe(1.25);
+    expect(fieldDisplay(sections, 'animations.0.clip.duration')).toBe('1.250s');
+    expect(fieldValue(sections, 'animations.0.clip.tracks.length')).toBe(2);
+    expect(fieldValue(sections, 'animations.0.clip.totalKeyframes')).toBe(3);
+    expect(fieldValue(sections, 'animations.0.clip.involvedNodeCount')).toBe(2);
+    expect(fieldValue(sections, 'animations.0.clip.propertyTypes')).toEqual(['position', 'weight']);
 
-    expect(fieldValue(sections, 'animation.tracks.0.name')).toBe('Armature.Hips.position');
-    expect(fieldValue(sections, 'animation.tracks.0.ValueTypeName')).toBe('vector');
-    expect(fieldValue(sections, 'animation.tracks.0.times.length')).toBe(3);
-    expect(fieldValue(sections, 'animation.tracks.0.values.length')).toBe(9);
-    expect(fieldValue(sections, 'animation.tracks.0.startTime')).toBe(0);
-    expect(fieldValue(sections, 'animation.tracks.0.endTime')).toBe(1);
-    expect(fieldValue(sections, 'animation.tracks.0.boundObject')).toBe('Armature.Hips');
-    expect(fieldValue(sections, 'animation.tracks.0.boundProperty')).toBe('position');
+    expect(fieldValue(sections, 'animations.0.tracks.0.name')).toBe('Armature.Hips.position');
+    expect(fieldValue(sections, 'animations.0.tracks.0.ValueTypeName')).toBe('vector');
+    expect(fieldValue(sections, 'animations.0.tracks.0.times.length')).toBe(3);
+    expect(fieldValue(sections, 'animations.0.tracks.0.values.length')).toBe(9);
+    expect(fieldValue(sections, 'animations.0.tracks.0.startTime')).toBe(0);
+    expect(fieldValue(sections, 'animations.0.tracks.0.endTime')).toBe(1);
+    expect(fieldValue(sections, 'animations.0.tracks.0.boundObject')).toBe('Armature.Hips');
+    expect(fieldValue(sections, 'animations.0.tracks.0.boundProperty')).toBe('position');
 
-    expect(fieldValue(sections, 'animation.tracks.1.startTime')).toBeNull();
-    expect(fieldValue(sections, 'animation.tracks.1.endTime')).toBeNull();
+    expect(fieldValue(sections, 'animations.0.tracks.1.startTime')).toBeNull();
+    expect(fieldValue(sections, 'animations.0.tracks.1.endTime')).toBeNull();
+  });
+
+  it('keeps field paths unique across multiple clips', () => {
+    const sections = extractAnimationSections([
+      new THREE.AnimationClip('Walk', 1, [
+        new THREE.VectorKeyframeTrack('Hips.position', [0], [1, 2, 3]),
+      ]),
+      new THREE.AnimationClip('Run', 2, [
+        new THREE.VectorKeyframeTrack('Hips.position', [0], [4, 5, 6]),
+      ]),
+    ]);
+
+    const paths = sections.flatMap((section) => section.fields.map((field) => field.path));
+
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(fieldValue(sections, 'animations.0.clip.name')).toBe('Walk');
+    expect(fieldValue(sections, 'animations.1.clip.name')).toBe('Run');
+    expect(fieldValue(sections, 'animations.1.tracks.0.name')).toBe('Hips.position');
+  });
+
+  it.each([
+    ['Hips.position', 'Hips', 'position'],
+    ['Mesh.material[0].color', 'Mesh', 'color'],
+    ['NoDotTrack', '', 'NoDotTrack'],
+    ['.leading', '', 'leading'],
+    ['Trailing.', 'Trailing', 'unknown'],
+  ])('parses track binding %s without throwing', (trackName, boundObject, boundProperty) => {
+    const clip = new THREE.AnimationClip('Bindings', 1, [
+      new THREE.NumberKeyframeTrack(trackName, [0], [1]),
+    ]);
+
+    const sections = extractAnimationSections([clip]);
+
+    expect(fieldValue(sections, 'animations.0.tracks.0.boundObject')).toBe(boundObject);
+    expect(fieldValue(sections, 'animations.0.tracks.0.boundProperty')).toBe(boundProperty);
   });
 });

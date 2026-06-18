@@ -33,4 +33,38 @@ describe('serializeThreeObject', () => {
     );
     expect(serializeThreeObject(canvas)).toBe('[DOMElement CANVAS]');
   });
+
+  it('truncates large arrays with a remaining item summary', () => {
+    const serialized = serializeThreeObject([1, 2, 3, 4, 5], { maxArrayItems: 2 });
+
+    expect(serialized).toEqual([1, 2, '[Truncated 3 more items]']);
+  });
+
+  it('truncates wide objects with a remaining key summary', () => {
+    const serialized = serializeThreeObject(
+      { first: 1, second: 2, third: 3, fourth: 4 },
+      { maxObjectKeys: 2 },
+    ) as Record<string, unknown>;
+
+    expect(serialized).toEqual({
+      first: 1,
+      second: 2,
+      '[Truncated]': '2 more keys',
+    });
+  });
+
+  it('serializes throwing enumerable getters as unreadable values', () => {
+    const value: Record<string, unknown> = { safe: true };
+    Object.defineProperty(value, 'danger', {
+      enumerable: true,
+      get() {
+        throw new Error('getter failed');
+      },
+    });
+
+    const serialized = serializeThreeObject(value) as Record<string, unknown>;
+
+    expect(serialized.safe).toBe(true);
+    expect(serialized.danger).toBe('[Unreadable: getter failed]');
+  });
 });

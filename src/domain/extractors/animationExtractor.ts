@@ -1,4 +1,4 @@
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import type { InspectorField, InspectorSection } from '../types';
 import { getFieldTip } from '../tips/fieldTips';
 import { displayUnknown, formatDuration } from '../../utils/format';
@@ -13,12 +13,31 @@ function field(
 }
 
 function parseTrackBinding(name: string): { boundObject: string; boundProperty: string } {
+  try {
+    const parsed = THREE.PropertyBinding.parseTrackName(name);
+    const nodeName = parsed.nodeName ?? '';
+    const propertyName = parsed.propertyName || 'unknown';
+
+    if (nodeName.includes('[') && name.endsWith(`.${propertyName}`)) {
+      return parseTrackBindingFallback(name);
+    }
+
+    return { boundObject: nodeName, boundProperty: propertyName };
+  } catch {
+    return parseTrackBindingFallback(name);
+  }
+}
+
+function parseTrackBindingFallback(name: string): { boundObject: string; boundProperty: string } {
   const lastDot = name.lastIndexOf('.');
-  if (lastDot < 0) return { boundObject: '', boundProperty: name };
+  if (lastDot < 0) return { boundObject: '', boundProperty: name || 'unknown' };
+
+  const prefix = name.slice(0, lastDot);
+  const boundObject = prefix.includes('[') ? (prefix.split('.')[0] ?? '') : prefix;
 
   return {
-    boundObject: name.slice(0, lastDot),
-    boundProperty: name.slice(lastDot + 1),
+    boundObject,
+    boundProperty: name.slice(lastDot + 1) || 'unknown',
   };
 }
 
@@ -31,24 +50,25 @@ function getTrackTimeBounds(times: THREE.KeyframeTrack['times']): { startTime: n
   };
 }
 
-function getClipSummaryFields(clip: THREE.AnimationClip): InspectorField[] {
+function getClipSummaryFields(clip: THREE.AnimationClip, clipIndex: number): InspectorField[] {
+  const path = `animations.${clipIndex}.clip`;
   const bindings = clip.tracks.map((track) => parseTrackBinding(track.name));
   const involvedNodes = new Set(bindings.map((binding) => binding.boundObject).filter(Boolean));
   const propertyTypes = Array.from(new Set(bindings.map((binding) => binding.boundProperty).filter(Boolean)));
   const totalKeyframes = clip.tracks.reduce((total, track) => total + track.times.length, 0);
 
   return [
-    field('clip.name', clip.name),
-    field('clip.duration', clip.duration, formatDuration(clip.duration)),
-    field('clip.tracks.length', clip.tracks.length),
-    field('clip.totalKeyframes', totalKeyframes),
-    field('clip.involvedNodeCount', involvedNodes.size),
-    field('clip.propertyTypes', propertyTypes),
+    field(`${path}.name`, clip.name),
+    field(`${path}.duration`, clip.duration, formatDuration(clip.duration)),
+    field(`${path}.tracks.length`, clip.tracks.length),
+    field(`${path}.totalKeyframes`, totalKeyframes),
+    field(`${path}.involvedNodeCount`, involvedNodes.size),
+    field(`${path}.propertyTypes`, propertyTypes),
   ];
 }
 
-function getTrackFields(track: THREE.KeyframeTrack, index: number): InspectorField[] {
-  const path = `animation.tracks.${index}`;
+function getTrackFields(track: THREE.KeyframeTrack, clipIndex: number, trackIndex: number): InspectorField[] {
+  const path = `animations.${clipIndex}.tracks.${trackIndex}`;
   const { boundObject, boundProperty } = parseTrackBinding(track.name);
   const { startTime, endTime } = getTrackTimeBounds(track.times);
 
@@ -79,8 +99,8 @@ export function extractAnimationSections(clips: THREE.AnimationClip[]): Inspecto
     id: `animation-${clipIndex}`,
     title: clip.name || `Animation ${clipIndex + 1}`,
     fields: [
-      ...getClipSummaryFields(clip),
-      ...clip.tracks.flatMap((track, trackIndex) => getTrackFields(track, trackIndex)),
+      ...getClipSummaryFields(clip, clipIndex),
+      ...clip.tracks.flatMap((track, trackIndex) => getTrackFields(track, clipIndex, trackIndex)),
     ],
   }));
 }
