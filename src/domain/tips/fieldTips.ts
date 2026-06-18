@@ -27,6 +27,8 @@ const exactTips = new Map<string, string>([
     'texture.flipY',
     'Controls vertical texture orientation. Wrong values often make imported textures appear upside down.',
   ],
+  ['texture.wrapS', 'Controls how UVs outside the 0-1 range sample the texture horizontally.'],
+  ['texture.wrapT', 'Controls how UVs outside the 0-1 range sample the texture vertically.'],
   ['geometry.index.count', 'Number of indexed vertices. Divide by 3 for triangle count on triangle meshes.'],
   ['object.name', 'Object name imported from the FBX scene hierarchy.'],
   ['object.type', 'Three.js runtime object class for this scene node.'],
@@ -80,13 +82,17 @@ const patternTips: Array<[RegExp, string]> = [
   ],
 ];
 
+function matchesPrefix(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}.`);
+}
+
 export function getFieldTip(path: string): string | undefined {
   const exact = exactTips.get(path);
   if (exact) return exact;
 
-  const prefix = prefixTips.find(([candidate]) => path.startsWith(candidate));
-  if (prefix) return prefix[1];
-
   const pattern = patternTips.find(([candidate]) => candidate.test(path));
-  return pattern?.[1];
+  if (pattern) return pattern[1];
+
+  const prefix = prefixTips.find(([candidate]) => matchesPrefix(path, candidate));
+  return prefix?.[1];
 }

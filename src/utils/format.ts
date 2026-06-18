@@ -1,6 +1,6 @@
 type NumericTypedArray = ArrayBufferView & {
   readonly length: number;
-  readonly [index: number]: number;
+  readonly [index: number]: number | bigint;
 };
 
 export function formatNumber(value: number, digits = 3): string {
@@ -12,8 +12,12 @@ export function formatNumber(value: number, digits = 3): string {
   return value.toFixed(digits).replace(/\.?0+$/, '');
 }
 
-export function formatTuple(values: Iterable<number>, digits = 3): string {
-  return `[${Array.from(values, (value) => formatNumber(value, digits)).join(', ')}]`;
+function formatNumericValue(value: number | bigint, digits = 3): string {
+  return typeof value === 'bigint' ? value.toString() : formatNumber(value, digits);
+}
+
+export function formatTuple(values: Iterable<number | bigint>, digits = 3): string {
+  return `[${Array.from(values, (value) => formatNumericValue(value, digits)).join(', ')}]`;
 }
 
 export function formatBytes(bytes: number): string {

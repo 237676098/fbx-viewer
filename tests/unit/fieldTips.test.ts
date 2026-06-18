@@ -11,7 +11,14 @@ describe('field tips', () => {
   });
 
   it('returns pattern tips', () => {
-    expect(getFieldTip('animation.tracks.0.times.length')).toContain('keyframe');
+    expect(getFieldTip('animation.tracks.0.times.length')).toContain(
+      'Number of keyframe timestamps',
+    );
+  });
+
+  it('does not match prefixes inside longer field names', () => {
+    expect(getFieldTip('material.mapExtra')).toBeUndefined();
+    expect(getFieldTip('object.matrixWorldInverse')).toBeUndefined();
   });
 
   it('returns undefined when no tip exists', () => {

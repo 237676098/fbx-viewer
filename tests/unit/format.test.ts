@@ -33,4 +33,10 @@ describe('format utilities', () => {
       'Float32Array length=5 sample=[1, 2, 3, 4]',
     );
   });
+
+  it('summarizes bigint typed arrays', () => {
+    expect(summarizeTypedArray(new BigInt64Array([1n, 2n]))).toBe(
+      'BigInt64Array length=2 sample=[1, 2]',
+    );
+  });
 });
