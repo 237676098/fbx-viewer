@@ -3,6 +3,25 @@ import type { InspectorField, InspectorSection } from '../types';
 import { getFieldTip } from '../tips/fieldTips';
 import { displayUnknown, formatTuple } from '../../utils/format';
 
+export function isMaterial(value: unknown): value is THREE.Material {
+  return Boolean(value && typeof value === 'object' && 'isMaterial' in value && value.isMaterial === true);
+}
+
+function isTexture(value: unknown): value is THREE.Texture {
+  return Boolean(value && typeof value === 'object' && 'isTexture' in value && value.isTexture === true);
+}
+
+export function collectMaterials(value: unknown): THREE.Material[] {
+  const values = Array.isArray(value) ? value : [value];
+  return values.filter(isMaterial);
+}
+
+export function collectMaterialTextures(material: THREE.Material): Array<[string, THREE.Texture]> {
+  return Object.entries(material)
+    .filter((entry): entry is [string, THREE.Texture] => isTexture(entry[1]))
+    .sort(([left], [right]) => left.localeCompare(right));
+}
+
 const textureSlots = [
   'map',
   'normalMap',
@@ -14,6 +33,18 @@ const textureSlots = [
   'bumpMap',
   'displacementMap',
   'lightMap',
+  'envMap',
+  'clearcoatMap',
+  'clearcoatNormalMap',
+  'clearcoatRoughnessMap',
+  'iridescenceMap',
+  'iridescenceThicknessMap',
+  'sheenColorMap',
+  'sheenRoughnessMap',
+  'specularColorMap',
+  'specularIntensityMap',
+  'transmissionMap',
+  'thicknessMap',
 ] as const;
 
 type TextureSlot = (typeof textureSlots)[number];
@@ -46,6 +77,7 @@ function textureDisplay(texture: THREE.Texture | null | undefined): string {
 
 function extractSingleMaterialFields(material: THREE.Material, prefix: string): InspectorField[] {
   const typedMaterial = material as MaterialWithOptionalFields;
+  const discoveredTextures = new Map(collectMaterialTextures(material));
   const fields: InspectorField[] = [
     field(`${prefix}.name`, material.name, material.name || '(unnamed)'),
     field(`${prefix}.uuid`, material.uuid),
@@ -59,7 +91,12 @@ function extractSingleMaterialFields(material: THREE.Material, prefix: string): 
   ];
 
   for (const slot of textureSlots) {
-    const texture = typedMaterial[slot] ?? null;
+    const texture = typedMaterial[slot] ?? discoveredTextures.get(slot) ?? null;
+    fields.push(field(`${prefix}.${slot}`, texture, textureDisplay(texture)));
+    discoveredTextures.delete(slot);
+  }
+
+  for (const [slot, texture] of discoveredTextures) {
     fields.push(field(`${prefix}.${slot}`, texture, textureDisplay(texture)));
   }
 
@@ -67,9 +104,9 @@ function extractSingleMaterialFields(material: THREE.Material, prefix: string): 
 }
 
 export function extractMaterialSections(
-  materialOrMaterials: THREE.Material | THREE.Material[],
+  materialOrMaterials: THREE.Material | Array<THREE.Material | null | undefined> | null | undefined,
 ): InspectorSection[] {
-  const materials = Array.isArray(materialOrMaterials) ? materialOrMaterials : [materialOrMaterials];
+  const materials = collectMaterials(materialOrMaterials);
 
   if (materials.length === 1 && !Array.isArray(materialOrMaterials)) {
     return [

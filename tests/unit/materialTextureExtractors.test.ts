@@ -60,6 +60,38 @@ describe('material and texture extractors', () => {
     expect(materialFieldValue(sections, 'materials.0.map')).toBe(null);
   });
 
+  it('filters invalid material array entries', () => {
+    const material = new THREE.MeshBasicMaterial({ name: 'Valid' });
+
+    const sections = extractMaterialSections([material, null, undefined]);
+
+    expect(materialFieldValue(sections, 'material.count')).toBe(1);
+    expect(materialFieldValue(sections, 'materials.0.name')).toBe('Valid');
+  });
+
+  it('extracts extended texture slots from physical materials', () => {
+    const envMap = new THREE.Texture();
+    envMap.name = 'StudioEnv';
+    const clearcoatMap = new THREE.Texture();
+    clearcoatMap.name = 'ClearcoatMask';
+    const material = new THREE.MeshPhysicalMaterial({
+      name: 'Paint',
+      envMap,
+      clearcoatMap,
+    });
+
+    const sections = extractMaterialSections(material);
+
+    expect(
+      sections.flatMap((section) => section.fields).find((field) => field.path === 'material.envMap')
+        ?.displayValue,
+    ).toContain('StudioEnv');
+    expect(
+      sections.flatMap((section) => section.fields).find((field) => field.path === 'material.clearcoatMap')
+        ?.displayValue,
+    ).toContain('ClearcoatMask');
+  });
+
   it('handles textures without browser image dimensions', () => {
     const texture = new THREE.Texture();
 

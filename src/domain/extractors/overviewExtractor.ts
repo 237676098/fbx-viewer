@@ -3,6 +3,7 @@ import type { InspectorField, InspectorSection } from '../types';
 import { getFieldTip } from '../tips/fieldTips';
 import { displayUnknown, formatBytes, formatDuration, formatTuple } from '../../utils/format';
 import { getTriangleCount } from './meshExtractor';
+import { collectMaterials, collectMaterialTextures } from './materialExtractor';
 
 type OverviewInput = {
   fileName: string;
@@ -12,21 +13,6 @@ type OverviewInput = {
   animations: THREE.AnimationClip[];
   warnings: string[];
 };
-
-const textureSlots = [
-  'map',
-  'normalMap',
-  'roughnessMap',
-  'metalnessMap',
-  'emissiveMap',
-  'aoMap',
-  'alphaMap',
-  'bumpMap',
-  'displacementMap',
-  'lightMap',
-] as const;
-
-type MaterialWithTextures = THREE.Material & Partial<Record<(typeof textureSlots)[number], THREE.Texture | null>>;
 
 function field(
   path: string,
@@ -38,20 +24,15 @@ function field(
 }
 
 function materialsFromObject(object: THREE.Object3D): THREE.Material[] {
-  const maybeMesh = object as THREE.Mesh;
-  if (!('material' in maybeMesh)) return [];
-
-  return Array.isArray(maybeMesh.material) ? maybeMesh.material : [maybeMesh.material].filter(Boolean);
+  return collectMaterials((object as { material?: unknown }).material);
 }
 
 function textureSetFromMaterials(materials: Iterable<THREE.Material>): Set<THREE.Texture> {
   const textures = new Set<THREE.Texture>();
 
   for (const material of materials) {
-    const typedMaterial = material as MaterialWithTextures;
-    for (const slot of textureSlots) {
-      const texture = typedMaterial[slot];
-      if (texture) textures.add(texture);
+    for (const [, texture] of collectMaterialTextures(material)) {
+      textures.add(texture);
     }
   }
 
@@ -67,11 +48,23 @@ function isSkinnedMesh(object: THREE.Object3D): object is THREE.SkinnedMesh {
 }
 
 function getSceneDimensions(root: THREE.Object3D): number[] {
+  const measurementRoot = root.clone(false);
+  const pairs: Array<[THREE.Object3D, THREE.Object3D]> = [[root, measurementRoot]];
+
+  for (let index = 0; index < pairs.length; index += 1) {
+    const [source, target] = pairs[index];
+    for (const child of source.children) {
+      const childClone = child.clone(false);
+      target.add(childClone);
+      pairs.push([child, childClone]);
+    }
+  }
+
   const box = new THREE.Box3();
   const point = new THREE.Vector3();
 
-  root.updateMatrixWorld(true);
-  root.traverse((object) => {
+  measurementRoot.updateMatrixWorld(true);
+  measurementRoot.traverse((object) => {
     if (!isMesh(object)) return;
 
     const position = object.geometry.getAttribute('position');

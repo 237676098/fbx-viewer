@@ -69,4 +69,74 @@ describe('extractOverview', () => {
     expect(fieldValue(sections, 'overview.materialCount')).toBe(2);
     expect(fieldValue(sections, 'overview.sceneDimensions')).toEqual([5, 7, 9]);
   });
+
+  it('does not mutate original matrix state while extracting scene dimensions', () => {
+    const root = new THREE.Group();
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+    mesh.position.set(5, 6, 7);
+    mesh.matrixWorld.makeTranslation(99, 98, 97);
+    mesh.matrixWorldNeedsUpdate = true;
+    root.add(mesh);
+
+    const originalMatrixWorld = mesh.matrixWorld.clone();
+    const originalNeedsUpdate = mesh.matrixWorldNeedsUpdate;
+
+    extractOverview({
+      fileName: 'dirty.fbx',
+      fileSize: 128,
+      loadMs: 1,
+      root,
+      animations: [],
+      warnings: [],
+    });
+
+    expect(mesh.matrixWorld.equals(originalMatrixWorld)).toBe(true);
+    expect(mesh.matrixWorldNeedsUpdate).toBe(originalNeedsUpdate);
+  });
+
+  it('filters invalid material array entries and counts discovered texture slots', () => {
+    const root = new THREE.Group();
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    const envMap = new THREE.Texture();
+    const clearcoatMap = new THREE.Texture();
+    const material = new THREE.MeshPhysicalMaterial({ name: 'Coat', envMap, clearcoatMap });
+    const mesh = new THREE.Mesh(geometry, material);
+    (mesh as unknown as { material: unknown[] }).material = [material, null, undefined];
+    root.add(mesh);
+
+    const sections = extractOverview({
+      fileName: 'materials.fbx',
+      fileSize: 128,
+      loadMs: 1,
+      root,
+      animations: [],
+      warnings: [],
+    });
+
+    expect(fieldValue(sections, 'overview.materialCount')).toBe(1);
+    expect(fieldValue(sections, 'overview.textureCount')).toBe(2);
+  });
+
+  it('ignores missing mesh material values without throwing', () => {
+    const root = new THREE.Group();
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+    (mesh as unknown as { material: unknown }).material = undefined;
+    root.add(mesh);
+
+    const sections = extractOverview({
+      fileName: 'missing-material.fbx',
+      fileSize: 128,
+      loadMs: 1,
+      root,
+      animations: [],
+      warnings: [],
+    });
+
+    expect(fieldValue(sections, 'overview.materialCount')).toBe(0);
+  });
 });
