@@ -1,6 +1,6 @@
-import { mount } from '@vue/test-utils';
+import { mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { nextTick, shallowRef } from 'vue';
+import { isRef, nextTick, shallowRef, type Ref } from 'vue';
 import * as THREE from 'three';
 import FbxViewport from '../../src/components/viewport/FbxViewport.vue';
 import type { ViewportDebugFlags } from '../../src/composables/useViewportDiagnostics';
@@ -9,18 +9,22 @@ const mountScene = vi.fn();
 const resizeScene = vi.fn();
 const setRoot = vi.fn();
 const screenshot = vi.fn<() => string | null>();
+const receivedFlags = vi.fn<(flags: Ref<ViewportDebugFlags>) => void>();
 
 vi.mock('../../src/composables/useThreeScene', () => ({
-  useThreeScene: vi.fn(() => ({
-    renderer: shallowRef(null),
-    mount: mountScene,
-    resize: resizeScene,
-    setRoot,
-    screenshot,
-  })),
+  useThreeScene: vi.fn((_container, flagsSource) => {
+    receivedFlags(flagsSource);
+    return {
+      renderer: shallowRef(null),
+      mount: mountScene,
+      resize: resizeScene,
+      setRoot,
+      screenshot,
+    };
+  }),
 }));
 
-function flags(): ViewportDebugFlags {
+function flags(overrides: Partial<ViewportDebugFlags> = {}): ViewportDebugFlags {
   return {
     grid: true,
     axes: true,
@@ -31,16 +35,22 @@ function flags(): ViewportDebugFlags {
     materialOverride: false,
     textures: true,
     exposure: 1,
+    ...overrides,
   };
 }
 
 describe('FbxViewport', () => {
+  let activeWrapper: VueWrapper | null = null;
+
   afterEach(() => {
+    activeWrapper?.unmount();
+    activeWrapper = null;
     vi.restoreAllMocks();
     mountScene.mockClear();
     resizeScene.mockClear();
     setRoot.mockClear();
     screenshot.mockReset();
+    receivedFlags.mockClear();
   });
 
   it('mounts the three scene and updates roots reactively', async () => {
@@ -52,6 +62,7 @@ describe('FbxViewport', () => {
         flags: flags(),
       },
     });
+    activeWrapper = wrapper;
 
     expect(mountScene).toHaveBeenCalledTimes(1);
     expect(resizeScene).toHaveBeenCalled();
@@ -70,14 +81,58 @@ describe('FbxViewport', () => {
         flags: diagnosticFlags,
       },
     });
+    activeWrapper = wrapper;
 
     await wrapper.get('button[aria-label="Hide grid"]').trigger('click');
     await wrapper.get('input[aria-label="Exposure"]').setValue('1.5');
 
     expect(diagnosticFlags.grid).toBe(true);
     expect(diagnosticFlags.exposure).toBe(1);
-    expect(wrapper.emitted('flagChange')?.[0]).toEqual(['grid', false]);
-    expect(wrapper.emitted('flagChange')?.[1]).toEqual(['exposure', 1.5]);
+    expect(wrapper.emitted('flagChange')?.[0]).toEqual([{ key: 'grid', value: false }]);
+    expect(wrapper.emitted('flagChange')?.[1]).toEqual([{ key: 'exposure', value: 1.5 }]);
+  });
+
+  it('passes a flags ref that follows immutable prop replacements', async () => {
+    const initialFlags = flags();
+    const nextFlags = flags({ grid: false, exposure: 1.5 });
+    const wrapper = mount(FbxViewport, {
+      props: {
+        root: null,
+        flags: initialFlags,
+      },
+    });
+    activeWrapper = wrapper;
+    const flagsSource = receivedFlags.mock.calls[0][0];
+
+    expect(isRef(flagsSource)).toBe(true);
+    expect(flagsSource.value.grid).toBe(initialFlags.grid);
+    expect(flagsSource.value.exposure).toBe(initialFlags.exposure);
+
+    await wrapper.setProps({ flags: nextFlags });
+
+    expect(flagsSource.value.grid).toBe(nextFlags.grid);
+    expect(flagsSource.value.exposure).toBe(nextFlags.exposure);
+  });
+
+  it('resizes on window resize and removes the listener on unmount', () => {
+    const wrapper = mount(FbxViewport, {
+      props: {
+        root: null,
+        flags: flags(),
+      },
+    });
+    activeWrapper = wrapper;
+    resizeScene.mockClear();
+
+    window.dispatchEvent(new Event('resize'));
+    expect(resizeScene).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+    activeWrapper = null;
+    resizeScene.mockClear();
+    window.dispatchEvent(new Event('resize'));
+
+    expect(resizeScene).not.toHaveBeenCalled();
   });
 
   it('downloads screenshots when available and ignores missing renderer output', async () => {
@@ -99,6 +154,7 @@ describe('FbxViewport', () => {
         flags: flags(),
       },
     });
+    activeWrapper = wrapper;
 
     await wrapper.get('button[aria-label="Download screenshot"]').trigger('click');
     expect(click).not.toHaveBeenCalled();

@@ -1,4 +1,4 @@
-import { onBeforeUnmount, shallowRef, watch, type Ref } from 'vue';
+import { computed, onBeforeUnmount, shallowRef, toValue, watch, type MaybeRef, type Ref } from 'vue';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
@@ -78,7 +78,8 @@ function disposeGroupChildren(group: THREE.Group): void {
   }
 }
 
-export function useThreeScene(container: Ref<HTMLElement | null>, flags: ViewportDebugFlags) {
+export function useThreeScene(container: Ref<HTMLElement | null>, flagsSource: MaybeRef<ViewportDebugFlags>) {
+  const flags = computed(() => toValue(flagsSource));
   const renderer = shallowRef<THREE.WebGLRenderer | null>(null);
   const scene = shallowRef(new THREE.Scene());
   const camera = shallowRef(new THREE.PerspectiveCamera(45, 1, 0.01, 10000));
@@ -102,18 +103,22 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   scene.value.add(helperGroup);
   camera.value.position.set(2, 2, 4);
 
+  function activeFlags(): ViewportDebugFlags {
+    return flags.value;
+  }
+
   const stopDiagnosticsWatch = watch(
     () =>
       [
-        flags.grid,
-        flags.axes,
-        flags.bounds,
-        flags.skeleton,
-        flags.wireframe,
-        flags.normals,
-        flags.materialOverride,
-        flags.textures,
-        flags.exposure,
+        activeFlags().grid,
+        activeFlags().axes,
+        activeFlags().bounds,
+        activeFlags().skeleton,
+        activeFlags().wireframe,
+        activeFlags().normals,
+        activeFlags().materialOverride,
+        activeFlags().textures,
+        activeFlags().exposure,
       ] as const,
     () => {
       applyMaterialDiagnostics();
@@ -128,7 +133,7 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
     const nextRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     nextRenderer.outputColorSpace = THREE.SRGBColorSpace;
     nextRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    nextRenderer.toneMappingExposure = flags.exposure;
+    nextRenderer.toneMappingExposure = flags.value.exposure;
 
     if (typeof window !== 'undefined') {
       nextRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -201,22 +206,23 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   }
 
   function rebuildHelpers(): void {
+    const currentFlags = activeFlags();
     disposeGroupChildren(helperGroup);
 
-    if (flags.grid) helperGroup.add(new THREE.GridHelper(10, 10));
-    if (flags.axes) helperGroup.add(new THREE.AxesHelper(1));
-    if (flags.bounds && root) {
+    if (currentFlags.grid) helperGroup.add(new THREE.GridHelper(10, 10));
+    if (currentFlags.axes) helperGroup.add(new THREE.AxesHelper(1));
+    if (currentFlags.bounds && root) {
       helperGroup.add(new THREE.Box3Helper(new THREE.Box3().setFromObject(root), 0x58a6ff));
     }
-    if (flags.skeleton && root) helperGroup.add(new THREE.SkeletonHelper(root));
-    if (flags.normals && root) {
+    if (currentFlags.skeleton && root) helperGroup.add(new THREE.SkeletonHelper(root));
+    if (currentFlags.normals && root) {
       root.traverse((object) => {
         if (isMesh(object)) helperGroup.add(new VertexNormalsHelper(object, 0.1, 0x7dd3fc));
       });
     }
 
     if (renderer.value) {
-      renderer.value.toneMappingExposure = flags.exposure;
+      renderer.value.toneMappingExposure = currentFlags.exposure;
     }
   }
 
@@ -240,15 +246,16 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   }
 
   function applyMaterialFlags(material: THREE.Material): void {
+    const currentFlags = activeFlags();
     const state = rememberMaterialState(material);
     const candidate = material as unknown as Record<string, unknown>;
 
     if (state.wireframe !== undefined) {
-      candidate.wireframe = flags.wireframe;
+      candidate.wireframe = currentFlags.wireframe;
     }
 
     for (const key of state.textures.keys()) {
-      candidate[key] = flags.textures ? state.textures.get(key) ?? null : null;
+      candidate[key] = currentFlags.textures ? state.textures.get(key) ?? null : null;
     }
 
     material.needsUpdate = true;
@@ -257,7 +264,8 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   function applyMaterialDiagnostics(): void {
     if (!root) return;
 
-    overrideMaterial.wireframe = flags.wireframe;
+    const currentFlags = activeFlags();
+    overrideMaterial.wireframe = currentFlags.wireframe;
     overrideMaterial.needsUpdate = true;
 
     root.traverse((object) => {
@@ -274,7 +282,7 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
         applyMaterialFlags(material);
       }
 
-      object.material = flags.materialOverride ? overrideMaterial : originalMaterial;
+      object.material = currentFlags.materialOverride ? overrideMaterial : originalMaterial;
     });
   }
 

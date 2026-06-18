@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import type * as THREE from 'three';
 import { useThreeScene } from '../../composables/useThreeScene';
 import type { ViewportDebugFlags } from '../../composables/useViewportDiagnostics';
 import ViewportToolbar from './ViewportToolbar.vue';
+
+type BooleanViewportFlag = Exclude<keyof ViewportDebugFlags, 'exposure'>;
+type ViewportFlagChange =
+  | { key: 'exposure'; value: number }
+  | { key: BooleanViewportFlag; value: boolean };
 
 const props = defineProps<{
   root: THREE.Object3D | null;
@@ -11,14 +16,14 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  flagChange: [key: keyof ViewportDebugFlags, value: boolean | number];
+  flagChange: [change: ViewportFlagChange];
 }>();
 
 const container = ref<HTMLElement | null>(null);
-const scene = useThreeScene(container, props.flags);
+const scene = useThreeScene(container, toRef(props, 'flags'));
 
-function forwardFlagChange(key: keyof ViewportDebugFlags, value: boolean | number): void {
-  emit('flagChange', key, value);
+function forwardFlagChange(change: ViewportFlagChange): void {
+  emit('flagChange', change);
 }
 
 function downloadScreenshot(): void {

@@ -2,13 +2,16 @@
 import type { ViewportDebugFlags } from '../../composables/useViewportDiagnostics';
 
 type ToggleFlag = Exclude<keyof ViewportDebugFlags, 'exposure'>;
+type ViewportFlagChange =
+  | { key: 'exposure'; value: number }
+  | { key: ToggleFlag; value: boolean };
 
 const props = defineProps<{
   flags: ViewportDebugFlags;
 }>();
 
 const emit = defineEmits<{
-  'flag-change': [key: keyof ViewportDebugFlags, value: boolean | number];
+  'flag-change': [change: ViewportFlagChange];
   screenshot: [];
 }>();
 
@@ -33,12 +36,12 @@ function controlLabel(key: ToggleFlag, label: string): string {
 }
 
 function toggleFlag(key: ToggleFlag): void {
-  emit('flag-change', key, !props.flags[key]);
+  emit('flag-change', { key, value: !props.flags[key] });
 }
 
 function updateExposure(event: Event): void {
   const value = Number((event.target as HTMLInputElement).value);
-  emit('flag-change', 'exposure', value);
+  emit('flag-change', { key: 'exposure', value });
 }
 </script>
 
