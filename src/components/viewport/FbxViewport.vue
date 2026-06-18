@@ -10,16 +10,15 @@ const props = defineProps<{
   flags: ViewportDebugFlags;
 }>();
 
+const emit = defineEmits<{
+  flagChange: [key: keyof ViewportDebugFlags, value: boolean | number];
+}>();
+
 const container = ref<HTMLElement | null>(null);
 const scene = useThreeScene(container, props.flags);
 
-function updateFlag(key: keyof ViewportDebugFlags, value: boolean | number): void {
-  if (key === 'exposure') {
-    props.flags.exposure = Number(value);
-    return;
-  }
-
-  props.flags[key] = Boolean(value);
+function forwardFlagChange(key: keyof ViewportDebugFlags, value: boolean | number): void {
+  emit('flagChange', key, value);
 }
 
 function downloadScreenshot(): void {
@@ -61,7 +60,7 @@ watch(
   <section class="fbx-viewport" aria-label="FBX viewport">
     <ViewportToolbar
       :flags="flags"
-      @update:flag="updateFlag"
+      @flag-change="forwardFlagChange"
       @screenshot="downloadScreenshot"
     />
     <div ref="container" class="viewport-canvas" aria-label="3D scene viewport" />

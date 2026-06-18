@@ -8,7 +8,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'update:flag': [key: keyof ViewportDebugFlags, value: boolean | number];
+  'flag-change': [key: keyof ViewportDebugFlags, value: boolean | number];
   screenshot: [];
 }>();
 
@@ -33,12 +33,12 @@ function controlLabel(key: ToggleFlag, label: string): string {
 }
 
 function toggleFlag(key: ToggleFlag): void {
-  emit('update:flag', key, !props.flags[key]);
+  emit('flag-change', key, !props.flags[key]);
 }
 
 function updateExposure(event: Event): void {
   const value = Number((event.target as HTMLInputElement).value);
-  emit('update:flag', 'exposure', value);
+  emit('flag-change', 'exposure', value);
 }
 </script>
 

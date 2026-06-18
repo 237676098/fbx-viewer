@@ -48,9 +48,9 @@ describe('ViewportToolbar', () => {
 
     expect(initialFlags.grid).toBe(true);
     expect(initialFlags.wireframe).toBe(false);
-    expect(wrapper.emitted('update:flag')?.[0]).toEqual(['grid', false]);
-    expect(wrapper.emitted('update:flag')?.[1]).toEqual(['wireframe', true]);
-    expect(wrapper.emitted('update:flag')?.[2]).toEqual(['exposure', 1.5]);
+    expect(wrapper.emitted('flag-change')?.[0]).toEqual(['grid', false]);
+    expect(wrapper.emitted('flag-change')?.[1]).toEqual(['wireframe', true]);
+    expect(wrapper.emitted('flag-change')?.[2]).toEqual(['exposure', 1.5]);
     expect(wrapper.emitted('screenshot')).toHaveLength(1);
   });
 });

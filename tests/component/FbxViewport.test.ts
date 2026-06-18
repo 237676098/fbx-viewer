@@ -62,6 +62,24 @@ describe('FbxViewport', () => {
     expect(setRoot).toHaveBeenLastCalledWith(nextRoot);
   });
 
+  it('emits toolbar flag changes without mutating flags', async () => {
+    const diagnosticFlags = flags();
+    const wrapper = mount(FbxViewport, {
+      props: {
+        root: null,
+        flags: diagnosticFlags,
+      },
+    });
+
+    await wrapper.get('button[aria-label="Hide grid"]').trigger('click');
+    await wrapper.get('input[aria-label="Exposure"]').setValue('1.5');
+
+    expect(diagnosticFlags.grid).toBe(true);
+    expect(diagnosticFlags.exposure).toBe(1);
+    expect(wrapper.emitted('flagChange')?.[0]).toEqual(['grid', false]);
+    expect(wrapper.emitted('flagChange')?.[1]).toEqual(['exposure', 1.5]);
+  });
+
   it('downloads screenshots when available and ignores missing renderer output', async () => {
     const click = vi.fn();
     const appendChild = vi.spyOn(document.body, 'appendChild');
