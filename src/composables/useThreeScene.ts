@@ -1,4 +1,4 @@
-import { onBeforeUnmount, shallowRef, type Ref } from 'vue';
+import { onBeforeUnmount, shallowRef, watch, type Ref } from 'vue';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ViewportDebugFlags } from './useViewportDiagnostics';
@@ -38,6 +38,13 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
   scene.value.add(new THREE.HemisphereLight(0xffffff, 0x303040, 2));
   scene.value.add(helperGroup);
   camera.value.position.set(2, 2, 4);
+
+  const stopDiagnosticsWatch = watch(
+    () => [flags.grid, flags.axes, flags.bounds, flags.skeleton, flags.exposure] as const,
+    () => {
+      rebuildHelpers();
+    },
+  );
 
   function mount(): void {
     const host = container.value;
@@ -140,6 +147,7 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flags: Viewpor
     mounted = false;
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
+    stopDiagnosticsWatch();
     resizeObserver?.disconnect();
     controls.value?.dispose();
     controls.value = null;
