@@ -13,6 +13,7 @@ type ViewportFlagChange =
 const props = defineProps<{
   root: THREE.Object3D | null;
   flags: ViewportDebugFlags;
+  onFrame?: (deltaSeconds: number) => void;
 }>();
 
 const emit = defineEmits<{
@@ -20,7 +21,9 @@ const emit = defineEmits<{
 }>();
 
 const container = ref<HTMLElement | null>(null);
-const scene = useThreeScene(container, toRef(props, 'flags'));
+const scene = useThreeScene(container, toRef(props, 'flags'), {
+  onFrame: (deltaSeconds) => props.onFrame?.(deltaSeconds),
+});
 
 function forwardFlagChange(change: ViewportFlagChange): void {
   emit('flagChange', change);

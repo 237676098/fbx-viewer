@@ -5,7 +5,7 @@ import FileDropZone from '../components/upload/FileDropZone.vue';
 import InspectorPanel from '../components/inspector/InspectorPanel.vue';
 import SceneTree from '../components/scene/SceneTree.vue';
 import FbxViewport from '../components/viewport/FbxViewport.vue';
-import TimelineControls from '../components/viewport/TimelineControls.vue';
+import TimelineControls, { type TimelineClipOption } from '../components/viewport/TimelineControls.vue';
 import { useAnimationMixer } from '../composables/useAnimationMixer';
 import { useFbxLoader } from '../composables/useFbxLoader';
 import { useInspectorData } from '../composables/useInspectorData';
@@ -36,6 +36,7 @@ const {
   stop,
   scrub,
   step,
+  update,
   setSpeed,
   setLoop,
   dispose,
@@ -46,8 +47,16 @@ const inspectorTabs = useInspectorData(loaded, selected);
 const root = computed(() => loaded.value?.root ?? null);
 const sceneNodes = computed(() => (root.value ? extractSceneNodes(root.value) : []));
 const clips = computed(() => loaded.value?.animations ?? []);
-const clipNames = computed(() => clips.value.map((clip, index) => clip.name || `Clip ${index + 1}`));
-const currentClipName = computed(() => currentClip.value?.name ?? clipNames.value[0] ?? '');
+const clipOptions = computed<TimelineClipOption[]>(() =>
+  clips.value.map((clip, index) => ({
+    id: `clip-${index}`,
+    label: clip.name || `Clip ${index + 1}`,
+  })),
+);
+const currentClipId = computed(() => {
+  const index = currentClip.value ? clips.value.indexOf(currentClip.value) : 0;
+  return index >= 0 ? `clip-${index}` : (clipOptions.value[0]?.id ?? '');
+});
 const selectedClip = computed(() => currentClip.value ?? clips.value[0] ?? null);
 const hasAnimations = computed(() => clips.value.length > 0);
 const trackCount = computed(() => selectedClip.value?.tracks.length ?? 0);
@@ -88,8 +97,10 @@ function selectObject(object: THREE.Object3D): void {
   select(object);
 }
 
-function selectClip(name: string): void {
-  const nextClip = clips.value.find((clip, index) => (clip.name || `Clip ${index + 1}`) === name) ?? null;
+function selectClip(clipId: string): void {
+  const match = /^clip-(\d+)$/.exec(clipId);
+  const index = match ? Number(match[1]) : -1;
+  const nextClip = Number.isInteger(index) ? clips.value[index] ?? null : null;
   setClip(nextClip);
 }
 
@@ -139,6 +150,7 @@ onBeforeUnmount(() => {
             v-if="root"
             :root="root"
             :flags="flags"
+            :on-frame="update"
             @flag-change="handleFlagChange"
           />
           <div v-if="!root" class="viewport-empty">
@@ -149,8 +161,8 @@ onBeforeUnmount(() => {
 
         <TimelineControls
           v-if="hasAnimations"
-          :clips="clipNames"
-          :current-clip="currentClipName"
+          :clips="clipOptions"
+          :current-clip-id="currentClipId"
           :is-playing="isPlaying"
           :current-time="currentTime"
           :duration="duration"

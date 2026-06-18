@@ -11,6 +11,9 @@ type MaterialState = {
   wireframe?: boolean;
   textures: Map<string, THREE.Texture | null>;
 };
+type UseThreeSceneOptions = {
+  onFrame?: (deltaSeconds: number) => void;
+};
 
 function disposeObject(object: THREE.Object3D): void {
   const disposable = object as DisposableObject;
@@ -78,7 +81,11 @@ function disposeGroupChildren(group: THREE.Group): void {
   }
 }
 
-export function useThreeScene(container: Ref<HTMLElement | null>, flagsSource: MaybeRef<ViewportDebugFlags>) {
+export function useThreeScene(
+  container: Ref<HTMLElement | null>,
+  flagsSource: MaybeRef<ViewportDebugFlags>,
+  options: UseThreeSceneOptions = {},
+) {
   const flags = computed(() => toValue(flagsSource));
   const renderer = shallowRef<THREE.WebGLRenderer | null>(null);
   const scene = shallowRef(new THREE.Scene());
@@ -311,7 +318,8 @@ export function useThreeScene(container: Ref<HTMLElement | null>, flagsSource: M
     if (!mounted) return;
 
     frame = requestAnimationFrame(render);
-    clock.getDelta();
+    const deltaSeconds = clock.getDelta();
+    options.onFrame?.(deltaSeconds);
     controls.value?.update();
     renderer.value?.render(scene.value, camera.value);
   }

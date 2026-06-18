@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+export type TimelineClipOption = {
+  id: string;
+  label: string;
+};
+
 const props = defineProps<{
-  clips: string[];
-  currentClip: string;
+  clips: TimelineClipOption[];
+  currentClipId: string;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -51,11 +56,11 @@ function emitSpeed(event: Event): void {
     <select
       class="timeline-clip"
       aria-label="Animation clip"
-      :value="currentClip"
+      :value="currentClipId"
       @change="emit('clip-change', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-for="clip in clips" :key="clip" :value="clip">
-        {{ clip }}
+      <option v-for="clip in clips" :key="clip.id" :value="clip.id">
+        {{ clip.label }}
       </option>
     </select>
 

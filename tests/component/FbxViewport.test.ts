@@ -10,10 +10,12 @@ const resizeScene = vi.fn();
 const setRoot = vi.fn();
 const screenshot = vi.fn<() => string | null>();
 const receivedFlags = vi.fn<(flags: Ref<ViewportDebugFlags>) => void>();
+const receivedFrameCallback = vi.fn<(callback?: (deltaSeconds: number) => void) => void>();
 
 vi.mock('../../src/composables/useThreeScene', () => ({
-  useThreeScene: vi.fn((_container, flagsSource) => {
+  useThreeScene: vi.fn((_container, flagsSource, options) => {
     receivedFlags(flagsSource);
+    receivedFrameCallback(options?.onFrame);
     return {
       renderer: shallowRef(null),
       mount: mountScene,
@@ -51,6 +53,7 @@ describe('FbxViewport', () => {
     setRoot.mockClear();
     screenshot.mockReset();
     receivedFlags.mockClear();
+    receivedFrameCallback.mockClear();
   });
 
   it('mounts the three scene and updates roots reactively', async () => {
@@ -71,6 +74,23 @@ describe('FbxViewport', () => {
     await wrapper.setProps({ root: nextRoot });
 
     expect(setRoot).toHaveBeenLastCalledWith(nextRoot);
+  });
+
+  it('passes an optional frame callback to the three scene', () => {
+    const onFrame = vi.fn();
+    const wrapper = mount(FbxViewport, {
+      props: {
+        root: null,
+        flags: flags(),
+        onFrame,
+      },
+    });
+    activeWrapper = wrapper;
+
+    const callback = receivedFrameCallback.mock.calls[0][0];
+    callback?.(0.25);
+
+    expect(onFrame).toHaveBeenCalledWith(0.25);
   });
 
   it('emits toolbar flag changes without mutating flags', async () => {
